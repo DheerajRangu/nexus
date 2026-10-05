@@ -16,7 +16,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
+from backend.road_report import road_story, printable_report
 from pydantic import BaseModel
 from ai.live import LivePipeline, ModelBundle
 from ai.visualization import draw
@@ -79,7 +80,7 @@ class EventMemory:
             prior=self.last_metrics
             if metrics['vehicleCount']>=prior['vehicleCount']+max(4,round(prior['vehicleCount']*.4)):
                 self.add({'eventType':'DENSITY_INCREASE','title':'Visible vehicle density increased','severity':'NOTICE','details':{'before':prior['vehicleCount'],'after':metrics['vehicleCount']}},packet);self.last_change=t
-            if self.last_access is not None and self.last_access-scene['emergencyAccessScore']>=15:
+            if self.last_access is not None and self.last_access-scene['emergencyAccessScore']>=15 and not scene.get('roadBlocked') and not scene.get('accidentAftermath'):
                 self.add({'eventType':'ACCESS_CHANGE','title':'Visual emergency-access estimate decreased','severity':'WARNING','details':{'before':self.last_access,'after':scene['emergencyAccessScore'],'experimental':True}},packet);self.last_change=t
         if self.last_metrics is None or t-self.last_change>=3:self.last_metrics=metrics.copy();self.last_access=scene['emergencyAccessScore'];self.last_change=t
         for event_id,start,seg in list(self.pending):
@@ -93,7 +94,7 @@ class EventMemory:
     def add(self,event,packet):
         t=packet['videoTimestamp'];kind=event['eventType'];segment=packet['segment']
         severity={'MEDIUM':'NOTICE','HIGH':'WARNING','LOW':'INFO'}.get(event.get('severity','INFO'),event.get('severity','INFO'))
-        if kind.startswith('POSSIBLE_INCIDENT') or kind in {'HAZARD_FIRE','GRIDLOCK_OBSERVED'}:severity='CRITICAL'
+        if kind.startswith('POSSIBLE_INCIDENT') or kind in {'HAZARD_FIRE','HAZARD_ACCIDENT_AFTERMATH_SCENE','HAZARD_CRASHED_VEHICLE','GRIDLOCK_OBSERVED'}:severity='CRITICAL'
         end=kind=='EVENT_ENDED'
         active_kind=event.get('details',{}).get('eventType') if end else kind
         ongoing=next((e for e in reversed(self.events) if e['eventType']==active_kind and e['segment']==segment and e['state']!='ENDED'),None)
@@ -103,7 +104,7 @@ class EventMemory:
         event_id=f'EVT-{len(self.events)+1:05}'
         description=event.get('title',kind)+'. '+packet['intelligence']['understanding']
         entry={**event,'eventId':event_id,'timestampSeconds':round(event.get('timestampSeconds',t),3),'segment':segment,
-            'severity':severity,'confidence':event.get('confidence'),'confidenceType':'detector score' if event.get('confidence') is not None else 'uncalibrated rule evidence',
+            'severity':severity,'confidence':event.get('confidence'),'confidenceType':'visual similarity' if event.get('details',{}).get('scope')=='scene' else 'detector score' if event.get('confidence') is not None else 'uncalibrated rule evidence',
             'state':'DETECTED' if severity in {'WARNING','CRITICAL'} else 'STABLE','peakTime':t,'endTime':None,
             'description':description,'observed':event.get('details',{}),'inference':packet['intelligence']['cause'],
             'recommendation':packet['intelligence']['recommendation'],'emergencyAccess':packet['intelligence']['emergencyAccessScore'],
@@ -162,7 +163,7 @@ class EventMemory:
         report={'sessionId':self.session.id,'source':self.session.source_name,'status':self.session.status,'complete':self.session.status=='ended',
             'coverageNote':'Sampled live observations only. Skipped frames and manual seeks leave gaps; track IDs are segment-local.',
             'segments':self.session.segments,'processedFrames':self.session.processed,'droppedFrames':self.session.frames.dropped,
-            'summary':scene['understanding'],'keyFindings':list(dict.fromkeys(e.get('title',e['eventType']) for e in important))[-8:],
+            'summary':road_story(scene,self.events),'keyFindings':list(dict.fromkeys(e.get('title',e['eventType']) for e in important))[-8:],
             'currentState':scene,'events':self.events,'trafficEvolution':self.timeline,'limitations':scene['limitations'],
             'trackHistory':'tracks.jsonl','stateHistory':'states.jsonl'}
         temp=self.root/'report.tmp';temp.write_text(json.dumps(report,indent=2));temp.replace(self.root/'report.json')
@@ -372,6 +373,9 @@ def report(session_id:str):return json.loads(saved_path(session_id,'report.json'
 def export(session_id:str,kind:str):
     names={'json':'report.json','transcript':'transcript.jsonl','tracks':'tracks.jsonl','states':'states.jsonl'}
     if kind not in names:raise HTTPException(404,'Unknown export')
+    if kind=='transcript':
+        data=report(session_id)
+        return Response(''.join(json.dumps(e)+'\n' for e in data['events']),media_type='application/x-ndjson',headers={'Content-Disposition':'attachment; filename="transcript.jsonl"'})
     return FileResponse(saved_path(session_id,names[kind]),filename=names[kind])
 
 @router.get('/api/live/{session_id}/events/{event_id}/{filename}')
@@ -382,7 +386,4 @@ def evidence(session_id:str,event_id:str,filename:str):
 
 @router.get('/api/live/{session_id}/print',response_class=HTMLResponse)
 def print_report(session_id:str):
-    import html
-    data=report(session_id);escape=lambda x:html.escape(str(x))
-    cards=''.join(f'<article><h3>{escape(e.get("title",e["eventType"]))} · {e["timestampSeconds"]:.2f}s</h3><p>{escape(e.get("description",""))}</p>'+(''.join(f'<img src="{escape(v["image"])}"><p>{escape(v.get("whyThisFrame",""))}</p>' for k,v in e.get('evidence',{}).items() if k in {'before','event','after'}))+'</article>' for e in data['events'])
-    return '<!doctype html><title>AEGIS live road report</title><style>body{font:16px system-ui;max-width:960px;margin:40px auto;padding:20px;color:#18302c}img{max-width:100%;max-height:360px}article{break-inside:avoid;border-top:1px solid #aaa;padding:20px 0}@media print{button{display:none}}</style><button onclick="window.print()">Print / Save PDF</button><h1>AEGIS Live Vision · Road intelligence report</h1><p>'+escape(data['source'])+'</p><p>'+escape(data['coverageNote'])+'</p><h2>Current road summary</h2><p>'+escape(data['summary'])+'</p><h2>Visual transcript & evidence</h2>'+cards+'<h2>Model limitations</h2>'+''.join('<p>'+escape(x)+'</p>' for x in data['limitations'])
+    return printable_report(report(session_id))
