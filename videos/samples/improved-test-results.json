@@ -1,0 +1,72 @@
+{
+  "mode": "FAST",
+  "browserErrors": [],
+  "results": [
+    {
+      "scenario": "TEST - Road construction (REAL).mp4",
+      "timestampSeconds": 8.0833,
+      "frames": 183,
+      "condition": "CONSTRUCTION DETECTED",
+      "constructionDetected": true,
+      "roadBlocked": false,
+      "accidentAftermath": false,
+      "incidentSuspected": false,
+      "transcript": [
+        {
+          "time": 0.042,
+          "title": "LIGHT OBSERVED",
+          "severity": "INFO"
+        },
+        {
+          "time": 2.167,
+          "title": "Construction detected",
+          "severity": "NOTICE"
+        }
+      ]
+    },
+    {
+      "scenario": "TEST - Road blockage (REAL).mp4",
+      "timestampSeconds": 8.2667,
+      "frames": 161,
+      "condition": "ROAD BLOCKAGE DETECTED",
+      "constructionDetected": false,
+      "roadBlocked": true,
+      "accidentAftermath": false,
+      "incidentSuspected": false,
+      "transcript": [
+        {
+          "time": 0.067,
+          "title": "NO VEHICLES OBSERVED",
+          "severity": "INFO"
+        },
+        {
+          "time": 2.2,
+          "title": "Road blockage detected",
+          "severity": "WARNING"
+        }
+      ]
+    },
+    {
+      "scenario": "TEST - Accident aftermath (REAL).mp4",
+      "timestampSeconds": 8.1081,
+      "frames": 218,
+      "condition": "ACCIDENT AFTERMATH DETECTED",
+      "constructionDetected": false,
+      "roadBlocked": false,
+      "accidentAftermath": true,
+      "incidentSuspected": false,
+      "transcript": [
+        {
+          "time": 0.033,
+          "title": "LIGHT OBSERVED",
+          "severity": "INFO"
+        },
+        {
+          "time": 2.135,
+          "title": "Accident aftermath detected",
+          "severity": "CRITICAL"
+        }
+      ]
+    }
+  ]
+}

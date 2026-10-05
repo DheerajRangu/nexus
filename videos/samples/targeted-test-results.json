@@ -1,0 +1,49 @@
+{
+  "mode": "FAST",
+  "protocol": "Continuous playback from the start to at least 8 source seconds, then pause. Single run per clip; no annotated accuracy benchmark.",
+  "browserErrors": [],
+  "results": [
+    {
+      "name": "TEST - Road construction (REAL).mp4",
+      "sourceTimestampSeconds": 8.125,
+      "receivedFrames": 170,
+      "condition": "LIGHT OBSERVED",
+      "trackedVehicles": 0,
+      "constructionDetected": false,
+      "hazards": [],
+      "incidentSuspected": false,
+      "emergencyAccessScore": 87,
+      "eventTypes": [
+        "ROAD_CONDITION_CHANGED"
+      ]
+    },
+    {
+      "name": "TEST - Road blockage (REAL).mp4",
+      "sourceTimestampSeconds": 8.0667,
+      "receivedFrames": 174,
+      "condition": "FREE FLOW OBSERVED",
+      "trackedVehicles": 0,
+      "constructionDetected": false,
+      "hazards": [],
+      "incidentSuspected": false,
+      "emergencyAccessScore": 100,
+      "eventTypes": [
+        "ROAD_CONDITION_CHANGED"
+      ]
+    },
+    {
+      "name": "TEST - Accident aftermath (REAL).mp4",
+      "sourceTimestampSeconds": 8.4084,
+      "receivedFrames": 403,
+      "condition": "LIGHT OBSERVED",
+      "trackedVehicles": 4,
+      "constructionDetected": false,
+      "hazards": [],
+      "incidentSuspected": false,
+      "emergencyAccessScore": 89,
+      "eventTypes": [
+        "ROAD_CONDITION_CHANGED"
+      ]
+    }
+  ]
+}

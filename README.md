@@ -24,9 +24,11 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:5173**. Models are already prepared in this workspace; skip model preparation here. A clean checkout needs the public SegFormer, YOLO-World and CLIP downloads (roughly 450 MB). Compiled YOLO-World inference runs offline without loading CLIP. `requirements.lock.txt` records the installed Python packages.
+Open **http://localhost:5173**. Models are already prepared in this workspace; skip model preparation here. A clean checkout needs the public SegFormer, YOLO-World and CLIP downloads (roughly 450 MB). YOLO-World uses compiled text embeddings. A separate local CLIP scene verifier compares blockage, construction and wreckage evidence against normal traffic and parked-car scenes; inference runs offline. `requirements.lock.txt` records the installed Python packages.
 
 Test with [highway-traffic.mp4](videos/samples/highway-traffic.mp4), a 29-second road video; attribution is in `videos/samples/SOURCE.md`. This is real footage, not prepopulated dashboard results.
+
+Scenario pack: five additional real/synthetic clips are available in `videos/samples/`. See [scenario testing](docs/SCENARIO_TESTING.md) for what to check, controls and source attribution. On this workspace they are registered under **Videos** with `TEST -` names.
 
 ## Live workflow
 

@@ -17,3 +17,4 @@ videos/sessions/
 *.db-wal
 *.db-shm
 .DS_Store
+videos/samples/app-scenarios.json
