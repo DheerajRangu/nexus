@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: AEGIS Dispatch API
+  version: 1.0.0
+  description: Authoritative direct-dispatch contract. Assignment confirmation, application receipt, and driver acknowledgement are distinct facts.
+servers: [{url: http://localhost:8080}]
+security: [{basicAuth: []}]
+paths:
+  /api/v1/control-room/emergencies/{emergencyId}:
+    get: {summary: Authoritative control-room snapshot, responses: {'200': {description: Mission snapshot}}}
+  /api/v1/control-room/emergencies/{emergencyId}/dispatch:
+    post:
+      summary: Directly assign an eligible vehicle — never creates an offer or driver accept/decline state.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DispatchRequest'}}}}
+      responses: {'200': {description: Confirmed snapshot}, '409': {$ref: '#/components/responses/Conflict'}}
+  /api/v1/control-room/emergencies/{emergencyId}/reassign:
+    post: {summary: Atomically supersede the active assignment and create a replacement, requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReassignRequest'}}}}, responses: {'200': {description: Confirmed snapshot}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /api/v1/control-room/emergencies/{emergencyId}/pickup-corrections:
+    post: {summary: Version and notify a pickup correction, requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PickupCorrection'}}}}, responses: {'200': {description: Updated snapshot}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /api/v1/driver/me/snapshot:
+    get: {summary: Driver-specific vehicle and active assignment snapshot, responses: {'200': {description: Assignment snapshot}}}
+  /api/v1/driver/telemetry:
+    post: {summary: Upload authenticated telemetry, requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Telemetry'}}}}, responses: {'200': {description: Point accepted}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /api/v1/driver/assignments/{assignmentId}/receipt:
+    post: {summary: Record application receipt; this is not acknowledgement, responses: {'200': {description: Receipt recorded}}}
+  /api/v1/driver/assignments/{assignmentId}/acknowledgement:
+    post: {summary: Driver acknowledges confirmed assignment and starts en-route transition, responses: {'200': {description: Acknowledged}}}
+  /api/v1/driver/assignments/{assignmentId}/arrival:
+    post: {summary: Driver marks arrival after acknowledgement, responses: {'200': {description: Arrival recorded}}}
+components:
+  securitySchemes: {basicAuth: {type: http, scheme: basic, description: Local development only; replace with the shared identity integration before deployment.}}
+  responses: {Conflict: {description: Version, availability, or idempotency conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}}
+  schemas:
+    DispatchRequest: {type: object, required: [ambulanceId, entityVersion, idempotencyKey], properties: {ambulanceId: {type: string}, entityVersion: {type: integer}, idempotencyKey: {type: string}}}
+    ReassignRequest: {type: object, required: [ambulanceId, entityVersion, idempotencyKey, reason], properties: {ambulanceId: {type: string}, entityVersion: {type: integer}, idempotencyKey: {type: string}, reason: {type: string}}}
+    PickupCorrection: {type: object, required: [latitude, longitude, address, source, justification, entityVersion], properties: {latitude: {type: number}, longitude: {type: number}, address: {type: string}, source: {type: string}, justification: {type: string}, entityVersion: {type: integer}}}
+    Telemetry: {type: object, required: [ambulanceId, trackingSessionId, sequenceNumber, capturedAt, latitude, longitude, accuracyMeters, schemaVersion], properties: {ambulanceId: {type: string}, missionId: {type: string}, trackingSessionId: {type: string}, sequenceNumber: {type: integer}, capturedAt: {type: string, format: date-time}, latitude: {type: number}, longitude: {type: number}, accuracyMeters: {type: number}, bearingDegrees: {type: number}, speedMps: {type: number}, schemaVersion: {type: string, enum: [v1]}}}
+    Error: {type: object, required: [code, message, correlationId, occurredAt], properties: {code: {type: string}, message: {type: string}, correlationId: {type: string}, occurredAt: {type: string, format: date-time}}}

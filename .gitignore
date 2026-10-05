@@ -1,0 +1,13 @@
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+backend/target/
+control-room/node_modules/
+control-room/dist/
+driver-app/.dart_tool/
+driver-app/.flutter-plugins*
+driver-app/build/
+driver-app/.env
+.tools/

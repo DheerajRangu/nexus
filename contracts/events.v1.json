@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AEGIS versioned event envelope",
+  "type": "object",
+  "required": ["eventId", "eventType", "schemaVersion", "entityVersion", "occurredAt", "payload"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "eventType": {"enum": ["ambulance.location.updated", "ambulance.availability.changed", "assignment.confirmed", "assignment.received", "assignment.acknowledged", "assignment.superseded", "operational.problem.reported", "pickup.location.changed", "pickup.change.acknowledged", "route.updated", "mission.state.changed"]},
+    "schemaVersion": {"const": "v1"},
+    "entityVersion": {"type": "integer", "minimum": 0},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "payload": {"type": "object"}
+  }
+}
