@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: AEGIS Operational Backend API
+  description: Central service controlling 108 intake, ambulance dispatch, hospital reservations, tracking, and traffic corridors.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Spring Boot Backend Server
+
+paths:
+  /auth/login:
+    post:
+      summary: User Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: JWT Bearer Token and User Profile
+
+  /intake/webhook:
+    post:
+      summary: Authorized Inbound 108 Call Webhook Adapter
+      parameters:
+        - in: header
+          name: X-Aegis-Signature
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InboundCallWebhookPayload'
+      responses:
+        '202':
+          description: Call accepted into operator queue
+
+  /intake/manual:
+    post:
+      summary: Operator Manual Intake Case Creation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualIntakeRequest'
+      responses:
+        '201':
+          description: Emergency Case Created
+
+  /cases/{emergencyId}/confirm-location:
+    post:
+      summary: Confirm Pinpoint Caller/Patient Location
+      parameters:
+        - in: path
+          name: emergencyId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationConfirmationRequest'
+      responses:
+        '200':
+          description: Location updated and mission progressed
+
+  /dispatch/shortlist/{emergencyId}:
+    get:
+      summary: Compute and Rank Eligible Ambulances
+      parameters:
+        - in: path
+          name: emergencyId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Shortlist of ranked ambulances with explicit rationales
+
+  /dispatch/offer:
+    post:
+      summary: Offer Emergency Mission to Ambulance Driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emergencyId: { type: string }
+                ambulanceId: { type: string }
+      responses:
+        '200':
+          description: Dispatch Offer Created with 30s TTL
+
+  /dispatch/offer/{offerId}/respond:
+    post:
+      summary: Driver Accept or Decline Dispatch Offer
+      parameters:
+        - in: path
+          name: offerId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [ACCEPT, DECLINE] }
+      responses:
+        '200':
+          description: Offer status updated and mission locked
+
+  /hospitals/recommendations/{emergencyId}:
+    get:
+      summary: Rank Eligible Hospitals by Capacity, Specialist, and Travel ETA
+      parameters:
+        - in: path
+          name: emergencyId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Ranked hospital list with transparent planning estimates
+
+  /hospitals/reservations:
+    post:
+      summary: Request Atomic Hospital Bed & Resource Reservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HospitalReservationRequest'
+      responses:
+        '201':
+          description: Reservation Confirmed
+
+  /tracking/{token}:
+    get:
+      summary: Public Citizen Tracking View Snapshot
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Tracking session data and ambulance telemetry
+
+  /roadblocks:
+    get:
+      summary: Get Active City Roadblocks
+      responses:
+        '200':
+          description: List of active roadblocks
+    post:
+      summary: Register New Roadblock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoadblockRequest'
+      responses:
+        '201':
+          description: Roadblock registered and route versions invalidated
+
+  /green-corridors/simulators/{junctionId}/set-state:
+    post:
+      summary: Update 3-Junction Traffic Signal State Machine
+      parameters:
+        - in: path
+          name: junctionId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                state: { type: string, enum: [REQUESTED, ACKNOWLEDGED, CLEARING, ACTIVE, PASSED, EXPIRED, UNAVAILABLE] }
+      responses:
+        '200':
+          description: Signal state updated
+
+components:
+  schemas:
+    InboundCallWebhookPayload:
+      type: object
+      properties:
+        externalCallRef: { type: string }
+        callbackNumber: { type: string }
+        operatorId: { type: string }
+        rawNotes: { type: string }
+        callerLat: { type: number }
+        callerLng: { type: number }
+        accuracyMeters: { type: number }
+
+    ManualIntakeRequest:
+      type: object
+      properties:
+        callbackNumber: { type: string }
+        chiefComplaint: { type: string }
+        priority: { type: string }
+        notes: { type: string }
+        addressLandmark: { type: string }
+        buildingDetails: { type: string }
+        provisionalDispatch: { type: boolean }
+
+    LocationConfirmationRequest:
+      type: object
+      properties:
+        latitude: { type: number }
+        longitude: { type: number }
+        accuracyMeters: { type: number }
+        address: { type: string }
+        confirmedBy: { type: string }
+
+    HospitalReservationRequest:
+      type: object
+      properties:
+        emergencyId: { type: string }
+        hospitalId: { type: string }
+        requiredBeds: { type: integer }
+        requiredICU: { type: boolean }
+        requiredEquipment:
+          type: array
+          items: { type: string }
+
+    RoadblockRequest:
+      type: object
+      properties:
+        source: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        radiusMeters: { type: number }
+        scope: { type: string }
+        expiresAt: { type: string }

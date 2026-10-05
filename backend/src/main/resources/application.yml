@@ -1,0 +1,30 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: aegis-controlroom-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local-pg}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+aegis:
+  redis:
+    enabled: ${AEGIS_REDIS_ENABLED:false}
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  webhook:
+    secret: ${WEBHOOK_HMAC_SECRET:}
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000/api/v1}

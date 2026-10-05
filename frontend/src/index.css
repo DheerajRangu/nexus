@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(17, 30, 56, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-accent {
+  background: rgba(13, 148, 136, 0.12);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+/* Leaflet Dark Map Fixes */
+.leaflet-container {
+  background-color: #0b1329 !important;
+  font-family: 'Inter', sans-serif !important;
+  z-index: 10;
+}
+
+.leaflet-tile {
+  filter: brightness(0.7) invert(1) contrast(1.2) hue-rotate(200deg) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #111e38 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(20, 184, 166, 0.4);
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: #111e38 !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1329;
+}
+::-webkit-scrollbar-thumb {
+  background: #1b2a4a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0d9488;
+}
+
+/* Radar Pulse Animation */
+@keyframes radar-ping {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-radar {
+  animation: radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}

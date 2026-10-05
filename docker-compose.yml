@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: aegis-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegis}
+      POSTGRES_USER: ${POSTGRES_USER:-aegis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-aegis} -d $${POSTGRES_DB:-aegis}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aegis-redis
+    ports:
+      - "6379:6379"
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: aegis-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    depends_on:
+      - postgres
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aegis-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local-pg
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aegis}
+      DB_USER: ${POSTGRES_USER:-aegis}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      AEGIS_REDIS_ENABLED: ${AEGIS_REDIS_ENABLED:-false}
+      AI_SERVICE_URL: http://ai-service:8000/api/v1
+      JWT_SECRET: ${JWT_SECRET:-}
+      WEBHOOK_HMAC_SECRET: ${WEBHOOK_HMAC_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aegis-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

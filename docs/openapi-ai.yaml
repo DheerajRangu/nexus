@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: AEGIS AI/ML Microservice API
+  description: Non-mutating advisory AI microservice providing NLP intake structuring, ETA regression correction, demand forecasting, and decision explanations.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local FastAPI AI Server
+
+paths:
+  /ai/intake/structure:
+    post:
+      summary: Structure Unformatted Operator Call Notes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operatorNotes: { type: string }
+                callerLanguage: { type: string, default: "en" }
+      responses:
+        '200':
+          description: Extracted structured complaint, priority, and required equipment
+
+  /ai/eta/predict:
+    post:
+      summary: Predict Traffic-Corrected Travel ETA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                originLat: { type: number }
+                originLng: { type: number }
+                destLat: { type: number }
+                destLng: { type: number }
+                baseDistanceKm: { type: number }
+                baseEtaMins: { type: number }
+                trafficLevel: { type: string, enum: [LOW, MODERATE, HEAVY, SEVERE] }
+      responses:
+        '200':
+          description: Corrected ETA in minutes with MAE confidence bound
+
+  /ai/demand/forecast:
+    get:
+      summary: Forecast Sector Emergency Call Density
+      parameters:
+        - in: query
+          name: sectorId
+          schema: { type: string }
+        - in: query
+          name: lookaheadHours
+          schema: { type: integer, default: 1 }
+      responses:
+        '200':
+          description: Demand density predictions and comparison baseline
+
+  /ai/explain/recommendations:
+    post:
+      summary: Generate Rationales and Explanations for Dispatch/Hospital Options
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emergencyId: { type: string }
+                candidates:
+                  type: array
+                  items: { type: object }
+      responses:
+        '200':
+          description: Structured rationales, freshness ratings, and model metadata
