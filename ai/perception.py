@@ -54,6 +54,52 @@ class EvidenceDetector:
         return [{'type':self.model.names[int(cls)],'confidence':float(conf),'box':list(map(float,box)),
                  'experimental':self.experimental} for box,cls,conf in zip(output.boxes.xyxy.cpu().tolist(),output.boxes.cls.cpu().tolist(),output.boxes.conf.cpu().tolist())]
 
+class SceneVerifier:
+    """Contrastive scene evidence; similarity is not an incident probability.
+
+    Normal traffic, parked cars and weather compete with incident descriptions.
+    Scene evidence has no object box or invented lane assignment.
+    """
+    prompts = [
+        'a photo of an open road with normal traffic',
+        'a photo of a road closed by barricades and road closed signs',
+        'a photo of road construction with workers and construction equipment',
+        'a photo of a wrecked car with severe collision damage',
+        'a photo of intact parked cars on a street',
+        'a photo of vehicles driving in rain at night',
+        'a photo of ordinary buildings and sidewalks',
+        'a photo of traffic congestion on a city street',
+    ]
+    kinds = {1:'road_closure_scene', 2:'construction_scene', 3:'accident_aftermath_scene'}
+
+    def __init__(self, checkpoint:Path, device:str):
+        import torch, clip
+        self.torch=torch;self.device=device
+        self.model,self.preprocess=clip.load(str(checkpoint),device=device,jit=False)
+        self.model=self.model.float().eval()
+        with torch.inference_mode():
+            features=self.model.encode_text(clip.tokenize(self.prompts).to(device)).float()
+            self.text=features/features.norm(dim=-1,keepdim=True)
+
+    @classmethod
+    def select(cls,scores:list[float]) -> list[dict]:
+        order=np.argsort(scores);winner=int(order[-1]);similarity=float(scores[winner])
+        margin=similarity-float(scores[int(order[-2])])
+        minimum_margin=.02 if winner==3 else .035
+        if winner not in cls.kinds or similarity<.27 or margin<minimum_margin:return []
+        return [{'type':cls.kinds[winner],'confidence':similarity,'similarityMargin':margin,
+                 'scope':'scene','box':None,'experimental':True,
+                 'observation':cls.prompts[winner].removeprefix('a photo of ')}]
+
+    def predict(self,frame:np.ndarray) -> list[dict]:
+        from PIL import Image
+        tensor=self.preprocess(Image.fromarray(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))).unsqueeze(0).to(self.device)
+        with self.torch.inference_mode():
+            features=self.model.encode_image(tensor).float()
+            features=features/features.norm(dim=-1,keepdim=True)
+            scores=(features@self.text.T)[0].cpu().tolist()
+        return self.select(scores)
+
 
 def point_in_mask(center: tuple[float,float], mask: np.ndarray) -> bool:
     x,y=map(round,center)

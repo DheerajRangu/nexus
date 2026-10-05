@@ -19,6 +19,8 @@ class PersistentEvidence:
     def update(self,detections:list[dict],time:float,mask:np.ndarray) -> dict[str,dict]:
         relevant=[]
         for item in detections:
+            if item.get('scope')=='scene':
+                relevant.append({**item,'onRoad':False});continue
             x1,y1,x2,y2=item['box']
             # Include signs/barriers immediately beside the road, but discount peripheral detections.
             on_road=point_in_mask(((x1+x2)/2,y2-1),mask) or point_in_mask(((x1+x2)/2,(y1+y2)/2),mask)
@@ -34,7 +36,8 @@ class PersistentEvidence:
             if len(sightings)/len(self.history)<.6:continue
             latest=sightings[-1][1]
             output[kind]={'count':len(latest),'confidence':float(np.mean([d['confidence'] for _,items in sightings for d in items])),
-                          'firstSeen':sightings[0][0],'lastSeen':sightings[-1][0],'boxes':[d['box'] for d in latest],
+                          'firstSeen':sightings[0][0],'lastSeen':sightings[-1][0],'boxes':[d['box'] for d in latest if d.get('box') is not None],
+                          'scope':latest[0].get('scope','object'),
                           'experimental':any(d['experimental'] for d in latest),'observations':len(sightings),
                           'onRoad':any(d['onRoad'] for d in latest)}
         return output
@@ -45,6 +48,7 @@ class RoadBrain:
         self.evidence=PersistentEvidence(config['evidence_persistence_seconds'],config['evidence_min_observations'])
         self.history=deque();self.events=[];self.active={};self.pending={};self.last_object_time=-1.;self.objects={}
         self.previous_tracks={};self.pair_signals={};self.last_status=None;self.gridlock_since=None
+        self.status_candidate=None;self.status_since=0.
 
     def event(self,key:str,time:float,title:str,details:dict,severity:str='INFO',confidence:float|None=None) -> None:
         self.events.append({'eventId':f'EVT-{len(self.events)+1:05}','timestampSeconds':round(time,3),'eventType':key,
@@ -70,17 +74,26 @@ class RoadBrain:
                road:dict,flow:dict,lanes:list[dict]) -> dict[str,Any]:
         mask=road['mask'];motion=metrics['averageMotion'];score=metrics['trafficScore'];stopped_ratio=metrics['stoppedRatio']
         if objects is not None:
-            self.objects=self.evidence.update(objects,time,mask);self.last_object_time=time
+            confirmed=self.evidence.update(objects,time,mask)
+            # A moving camera or brief weak match must not clear an established
+            # scene finding instantly. Only confirmed evidence gets this grace.
+            for kind,item in self.objects.items():
+                if item.get('scope')=='scene' and kind not in confirmed and time-item['lastSeen']<=2.5:
+                    confirmed[kind]=item
+            self.objects=confirmed;self.last_object_time=time
         if time-self.last_object_time>2.5:self.objects={}
         evidence=self.objects
         construction={key:value for key,value in evidence.items() if key in self.config['construction_weights']}
         construction_score=min(1.,sum(self.config['construction_weights'][k]*min(4,v['count'])*v['confidence'] for k,v in construction.items()))
         strong={'excavator','road_roller','road_digging','bulldozer','crane','lane_closed_sign'}
-        construction_present=construction_score>=self.config['construction_threshold'] and (bool(set(construction)&strong) or len(construction)>=3)
-        has_construction=self.persist('CONSTRUCTION_EVIDENCE',construction_present,time,'Persistent construction evidence',{'evidence':construction,'score':construction_score},confidence=float(np.mean([v['confidence'] for v in construction.values()])) if construction else None,seconds=0)
-        hazards={k:v for k,v in evidence.items() if k in self.config['hazard_weights'] and v['onRoad']}
+        construction_present='construction_scene' in evidence or (construction_score>=self.config['construction_threshold'] and (bool(set(construction)&strong) or len(construction)>=3))
+        has_construction=self.persist('CONSTRUCTION_EVIDENCE',construction_present,time,'Construction detected',{'evidence':construction,'score':construction_score},confidence=float(np.mean([v['confidence'] for v in construction.values()])) if construction else None,seconds=0)
+        hazards={k:v for k,v in evidence.items() if k in self.config['hazard_weights'] and (v['onRoad'] or k in {'road_closure_scene','accident_aftermath_scene'})}
+        road_blocked=bool(set(hazards)&{'road_closure_scene','road_block','road_barrier','temporary_barricade','fallen_tree'})
+        accident_aftermath=bool(set(hazards)&{'accident_aftermath_scene','crashed_vehicle'})
         hazard_score=min(1.,sum(self.config['hazard_weights'][k]*v['confidence'] for k,v in hazards.items()))
-        for kind,item in hazards.items():self.persist('HAZARD_'+kind.upper(),True,time,f'{kind.replace("_"," ").capitalize()} evidence',{'evidence':item},'HIGH',seconds=0,confidence=item['confidence'])
+        titles={'road_closure_scene':'Road blockage detected','accident_aftermath_scene':'Accident aftermath detected','crashed_vehicle':'Damaged vehicle detected','road_block':'Road blockage detected'}
+        for kind,item in hazards.items():self.persist('HAZARD_'+kind.upper(),True,time,titles.get(kind,f'{kind.replace("_"," ").capitalize()} detected'),{'evidence':item,'scope':item.get('scope','object')},'HIGH',seconds=0,confidence=item['confidence'])
         for key in list(self.active):
             if key.startswith('HAZARD_') and key[7:].lower() not in hazards:self.persist(key,False,time,'',{})
         self.history.append({**metrics,'time':time})
@@ -161,12 +174,14 @@ class RoadBrain:
         penalties={'traffic':round(score*45,1),'construction':round(min(18,construction_area*35+construction_score*8) if has_construction else 0,1),'hazards':round(hazard_score*30,1),'potentialIncidents':15 if incident_pairs else 0,'laneRestriction':round(15*lane_restricted/max(1,len(lane_results)),1)}
         health=round(max(0,100-sum(penalties.values())))
         access=round(max(0,health-stopped_ratio*10-(8 if disruption else 0)))
+        if road_blocked:access=min(access,20)
+        elif accident_aftermath:access=min(access,45)
         # A visual heuristic cannot establish physical ambulance clearance or legal right of way.
         access_label='EXCELLENT' if access>=90 else 'GOOD' if access>=75 else 'USABLE' if access>=55 else 'POOR' if access>=35 else 'AVOID'
-        primary='CRITICAL HAZARD EVIDENCE' if 'fire' in hazards else 'POSSIBLE INCIDENT' if incident_pairs else 'POSSIBLE ROAD RESTRICTION' if lane_restricted else 'CONSTRUCTION EVIDENCE' if has_construction else 'TRAFFIC DISRUPTION' if disruption else traffic_level+' OBSERVED'
+        primary='CRITICAL HAZARD EVIDENCE' if 'fire' in hazards else 'POSSIBLE COLLISION' if incident_pairs else 'ROAD BLOCKAGE DETECTED' if road_blocked else 'ACCIDENT AFTERMATH DETECTED' if accident_aftermath else 'POSSIBLE ROAD RESTRICTION' if lane_restricted else 'CONSTRUCTION DETECTED' if has_construction else 'TRAFFIC DISRUPTION' if disruption else 'NO VEHICLES OBSERVED' if metrics['vehicleCount']==0 else traffic_level+' OBSERVED'
         findings=[{'kind':'traffic','title':traffic_level,'description':f'{metrics["vehicleCount"]} visible vehicles, {metrics["roadOccupancy"]:.0%} approximate road occupancy, {motion:.1f} px/sec movement.'}]
-        if has_construction:findings.append({'kind':'construction','title':'Persistent construction evidence','description':', '.join(f'{v["count"]} {k.replace("_"," ")}' for k,v in construction.items()),'confidence':float(np.mean([v['confidence'] for v in construction.values()])),'confidenceType':'detector score, not calibrated scene probability','experimental':any(v['experimental'] for v in construction.values())})
-        for kind,item in hazards.items():findings.append({'kind':'hazard','title':kind.replace('_',' ').capitalize(),'description':f'Persistent visual evidence overlaps predicted road. {item["observations"]} observations.','confidence':item['confidence'],'confidenceType':'detector score','experimental':item['experimental']})
+        if has_construction:findings.append({'kind':'construction','title':'Construction detected','description':'Road construction activity is visible across repeated scene observations.' if 'construction_scene' in construction else ', '.join(f'{v["count"]} {k.replace("_"," ")}' for k,v in construction.items()),'confidence':float(np.mean([v['confidence'] for v in construction.values()])),'confidenceType':'detector score, not calibrated scene probability','experimental':any(v['experimental'] for v in construction.values())})
+        for kind,item in hazards.items():findings.append({'kind':'hazard','title':titles.get(kind,kind.replace('_',' ').capitalize()),'description':f'Sustained scene evidence across {item["observations"]} observations.' if item.get('scope')=='scene' else f'Object evidence overlaps the road across {item["observations"]} observations.','confidence':item['confidence'],'confidenceType':'visual similarity' if item.get('scope')=='scene' else 'detector score','experimental':item['experimental']})
         if incident_pairs:findings.append({'kind':'incident','title':'Possible incident','description':'Overlapping trajectories with sudden stopping persisted. Review the video; collision is not confirmed.','confidence':None,'experimental':True})
         if pedestrian_alert:findings.append({'kind':'pedestrian','title':'People within the drivable region','description':f'{len(people)} persistent pedestrian tracks; crossing intent is unknown.'})
         emergency={k:v for k,v in evidence.items() if k in {'emergency_vehicle','fire_vehicle','police_vehicle'}}
@@ -184,18 +199,35 @@ class RoadBrain:
             text+='Persistent construction objects overlap the predicted road area. This may contribute to reduced flow; a causal lane closure is not confirmed. '
             cause='CONSTRUCTION MAY CONTRIBUTE';links.append({'from':'Persistent construction evidence','relation':'may affect','to':'Traffic flow'})
         if hazards:text+='Road-overlapping hazard evidence needs manual verification. '
+        if road_blocked:
+            text='Road blockage detected: persistent closure or obstruction evidence is visible. '+text
+            cause='ROAD BLOCKAGE'
+        if accident_aftermath:
+            text='Accident aftermath detected: visible vehicle damage suggests a prior collision. '+text
+            cause='ACCIDENT AFTERMATH'
+        if incident_pairs:text='Possible collision detected: converging vehicle trajectories were followed by sudden stopping. '+text
+        if metrics['vehicleCount']==0 and not hazards and not has_construction:
+            text='No vehicles are currently tracked. Road access has not been established. '
         if disruption:text+=f'Movement has dropped from an earlier {baseline_motion:.1f} to {motion:.1f} px/sec. The cause is unresolved. '
         if trend not in {'INSUFFICIENT HISTORY','STABLE'}:text+=f'The measured traffic-score trend is {trend.lower()}. '
         if not road['reliable']:text+='Road-region quality is uncertain; review the segmentation or use the expert override. '
         recommendation='REVIEW BEFORE EMERGENCY ROUTING' if access>=55 else 'CONSIDER ALTERNATIVE ROUTE — VERIFY FIRST'
         if hazards or incident_pairs:recommendation='POTENTIAL HAZARD — MANUAL REVIEW REQUIRED'
-        if self.last_status!=primary:
-            self.event('ROAD_CONDITION_CHANGED',time,primary,{'previous':self.last_status,'current':primary,'trafficScore':score});self.last_status=primary
+        if road_blocked:recommendation='AVOID ROAD — ROAD BLOCKAGE DETECTED'
+        elif accident_aftermath or incident_pairs:recommendation='USE ALTERNATE ROUTE — INCIDENT DETECTED'
+        if self.status_candidate!=primary:self.status_candidate=primary;self.status_since=time
+        urgent=bool(hazards or incident_pairs or has_construction or lane_restricted or disruption)
+        if self.last_status!=primary and (self.last_status is None or urgent or time-self.status_since>=1.5):
+            # Specific incident events already describe the evidence. Avoid a second
+            # transcript card saying the same thing as a generic condition change.
+            if not urgent:
+                self.event('ROAD_CONDITION_CHANGED',time,primary,{'previous':self.last_status,'current':primary,'trafficScore':score})
+            self.last_status=primary
         confidence_items=[v['confidence'] for v in construction.values()]+[v['confidence'] for v in hazards.values()]
         return {'timestampSeconds':round(time,3),'condition':primary,'understanding':text.strip(),'trafficLevel':traffic_level,'trend':trend,
                 'trendSlopePerSecond':slope,'predictionRisk':None,'trafficProjection':projection,'findings':findings,'constructionDetected':has_construction if self.capabilities.get('objects') else None,
                 'constructionScore':construction_score,'evidence':evidence,'hazards':list(hazards),'lanes':lane_results,'anomalies':anomalies,'wrongWay':wrong_way,
-                'incidentSuspected':bool(incident_pairs),'incidentConfidence':None,'roadHealthScore':health,'emergencyAccessScore':access,'accessLabel':access_label,
+                'roadBlocked':road_blocked,'accidentAftermath':accident_aftermath,'incidentSuspected':bool(incident_pairs),'incidentConfidence':None,'roadHealthScore':health,'emergencyAccessScore':access,'accessLabel':access_label,
                 'scoreBasis':'EXPERIMENTAL VISUAL HEURISTIC — not validated ambulance passability','scorePenalties':penalties,'recommendation':recommendation,
                 'routingDecision':'REQUIRES_VERIFICATION','cause':cause,'sceneGraph':links,'observationConfidence':float(np.mean(confidence_items)) if confidence_items else None,
                 'confidenceType':'mean detector score; not a calibrated road-safety probability','roadRegion':{k:v for k,v in road.items() if k not in {'mask','sidewalkMask'}},

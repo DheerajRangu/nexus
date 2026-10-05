@@ -38,6 +38,7 @@ prompts:
   fire_vehicle: fire engine
   police_vehicle: police car
 construction_weights:
+  construction_scene: 1.0
   construction_cone: 0.08
   road_barrier: 0.12
   excavator: 0.5
@@ -50,6 +51,10 @@ construction_weights:
   crane: 0.35
   bulldozer: 0.45
 hazard_weights:
+  road_closure_scene: 1.0
+  accident_aftermath_scene: 0.8
+  road_barrier: 0.5
+  temporary_barricade: 0.5
   road_debris: 0.3
   crashed_vehicle: 0.6
   road_block: 0.6

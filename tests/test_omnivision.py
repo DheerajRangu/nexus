@@ -50,6 +50,35 @@ def test_two_stopped_vehicles_are_not_accident():
     assert result['incidentConfidence'] is None
     assert result['lanes']==[]
 
+def test_scene_closure_survives_occluded_road_and_empty_vehicle_count():
+    b=brain();sample={**road(),'mask':np.zeros((100,100),np.uint8)}
+    detection={'type':'road_closure_scene','scope':'scene','box':None,'confidence':.32,'experimental':True}
+    for t in range(6):result=b.update(t,metrics(t,count=0),[],[],[detection],sample,FLOW,[])
+    assert result['roadBlocked']
+    assert result['condition']=='ROAD BLOCKAGE DETECTED'
+    assert result['emergencyAccessScore']<=20
+    assert result['recommendation'].startswith('AVOID ROAD')
+    assert any(e['title']=='Road blockage detected' for e in b.events)
+
+def test_aftermath_is_named_without_inventing_collision_time():
+    b=brain();detection={'type':'accident_aftermath_scene','scope':'scene','box':None,'confidence':.3,'experimental':True}
+    for t in range(6):result=b.update(t,metrics(t),[],[],[detection],road(),FLOW,[])
+    assert result['accidentAftermath']
+    assert not result['incidentSuspected']
+    assert result['condition']=='ACCIDENT AFTERMATH DETECTED'
+    assert 'prior collision' in result['understanding']
+
+def test_scene_verifier_rejects_ambiguous_and_normal_scenes():
+    from ai.perception import SceneVerifier
+    assert not SceneVerifier.select([.32,.3,.28,.2,.2,.1,.1,.1])
+    assert not SceneVerifier.select([.25,.28,.279,.2,.2,.1,.1,.1])
+    assert SceneVerifier.select([.2,.32,.25,.2,.2,.1,.1,.1])[0]['type']=='road_closure_scene'
+
+def test_no_vehicle_detections_do_not_claim_free_flow():
+    result=brain().update(0,metrics(0,count=0),[],[],[],road(),FLOW,[])
+    assert result['condition']=='NO VEHICLES OBSERVED'
+    assert 'access has not been established' in result['understanding']
+
 def test_sustained_motion_collapse_generates_anomaly_but_not_invented_cause():
     b=brain()
     for time in range(20):

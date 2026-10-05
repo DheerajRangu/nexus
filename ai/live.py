@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from ai.engine import Tracks, TrafficSmoother, traffic, inside
-from ai.perception import RoadSegmenter, EvidenceDetector, OpticalFlow, LaneGeometry, mask_occupancy, point_in_mask
+from ai.perception import RoadSegmenter, EvidenceDetector, SceneVerifier, OpticalFlow, LaneGeometry, mask_occupancy, point_in_mask
 from ai.brain import RoadBrain
 from backend.processor import ROOT, CONFIG, OMNI
 
@@ -25,7 +25,7 @@ class ModelBundle:
         self.device=live_device()
         weights=os.getenv('VEHICLE_MODEL') or str(ROOT/'models'/CONFIG['vehicle_model'])
         self.vehicle=YOLO(weights)
-        self.segmenter=self.objects=None
+        self.segmenter=self.objects=self.scene_verifier=None
         self.coverage={'vehicles':'YOLO26 + local motion/appearance association','road':None,'objects':None,
             'lanes':'experimental painted-line geometry','flow':'Farneback + sparse Lucas-Kanade',
             'reasoning':'deterministic temporal evidence','gaps':[]}
@@ -38,11 +38,16 @@ class ModelBundle:
             self.objects=EvidenceDetector(ROOT/OMNI['open_vocabulary_model'],Path(custom) if custom else None)
             self.coverage.update(objects=self.objects.model_name,objectMethod='trained custom model' if custom else 'experimental open-vocabulary model')
         except Exception as exc:self.coverage['gaps'].append('Object evidence unavailable: '+str(exc))
+        try:
+            self.scene_verifier=SceneVerifier(ROOT/'models/clip/ViT-B-32.pt',self.device)
+            self.coverage['scene']='CLIP contrastive scene verification'
+        except Exception as exc:self.coverage['gaps'].append('Scene verification unavailable: '+str(exc))
         # Warm up before the source clock starts. Avoid first-frame inference/model download surprises.
         sample=np.zeros((384,640,3),np.uint8)
         self.vehicle.predict(sample,imgsz=416,device=self.device,verbose=False)
         if self.segmenter:self.segmenter.predict(sample,384)
         if self.objects:self.objects.predict(sample,416,OMNI['hazard_confidence'],self.device)
+        if self.scene_verifier:self.scene_verifier.predict(sample)
 
 
 class MotionTracker:
@@ -149,8 +154,10 @@ class LivePipeline:
             track['state']='STOPPED' if track['stationarySeconds']>=3 else 'DECELERATING' if acceleration<-30 else 'ACCELERATING' if acceleration>30 else 'SLOWING' if speed<5 else 'NORMAL'
             (people if item['type']=='person' else current).append(track)
         if self.models.objects and timestamp-self.last_objects>=.7:
-            self.objects=self.models.objects.predict(frame,416,OMNI['hazard_confidence'],self.models.device)
+            self.objects=self.models.objects.predict(frame,640,OMNI['hazard_confidence'],self.models.device)
             self.last_objects=timestamp;objects_sample=self.objects
+            if getattr(self.models,'scene_verifier',None):
+                objects_sample=self.objects+self.models.scene_verifier.predict(frame)
         occupied=mask_occupancy([t['box'] for t in current],road['mask'])
         observed=[t for t in current if len(t['history'])>1]
         motion=float(np.mean([t['motionPxSec'] for t in observed])) if observed else 0.
