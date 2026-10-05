@@ -1,0 +1,30 @@
+{
+  "service": "aegis-citizen-tracking",
+  "contractVersion": "1.0.0",
+  "openapi": "contracts/citizen-tracking-v1.openapi.yaml",
+  "events": "contracts/events.md",
+  "systemOfRecord": {
+    "owner": "AEGIS Spring Boot",
+    "database": "shared PostgreSQL",
+    "responsibilities": [
+      "emergency lifecycle",
+      "mission state",
+      "ambulance assignment",
+      "hospital reservation and confirmation",
+      "authorization",
+      "tracking session issue, expiry, and revocation"
+    ],
+    "ai": "FastAPI recommendations are reached through Spring Boot. The citizen website does not call FastAPI and does not diagnose."
+  },
+  "identifiers": ["emergencyId", "missionId", "ambulanceId", "hospitalId"],
+  "time": "UTC ISO-8601 in the API; local time only in the browser",
+  "developmentAdapter": {
+    "label": "DEVELOPMENT ADAPTER",
+    "entry": "server/index.ts",
+    "modeEnv": "ADAPTER_MODE",
+    "modes": {
+      "development": "In-memory synthetic missions only. Every tracking payload has synthetic=true. Demo routes are enabled. This is not a mission database.",
+      "proxy": "Forwards /api/v1/citizen to AEGIS_BACKEND_BASE_URL. Demo routes return DEMO_DISABLED. If the backend is unreachable the adapter returns UNAVAILABLE and does not invent a mission."
+    }
+  }
+}
