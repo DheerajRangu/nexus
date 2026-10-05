@@ -1,0 +1,2 @@
+import type {State,Role} from '../features/engine';
+export async function request(path:string,body?:unknown){const response=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});const result=await response.json() as {state:State;user:{id:string;name:string;email:string;role:Role}|null;error?:string};if(!response.ok)throw Error(result.error||'Request could not be completed');return result;}
