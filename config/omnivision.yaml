@@ -1,0 +1,62 @@
+segmentation_model: models/road-segmentation
+open_vocabulary_model: models/omnivision-world.pt
+custom_hazard_model: null
+road_refresh_seconds: 2
+construction_threshold: 0.55
+evidence_persistence_seconds: 2
+evidence_min_observations: 3
+hazard_confidence: 0.35
+incident_motion_drop_ratio: 0.7
+anomaly_persistence_seconds: 2
+trend_window_seconds: 10
+prompts:
+  construction_cone: traffic cone
+  road_barrier: concrete road barrier
+  excavator: excavator
+  road_roller: road roller
+  construction_sign: road construction sign
+  construction_worker: construction worker in safety vest
+  road_debris: debris on road
+  crashed_vehicle: crashed car
+  road_block: road barricade
+  pothole: pothole in asphalt
+  fallen_tree: fallen tree blocking road
+  water_logging: flooded road
+  fire: fire
+  smoke: smoke
+  broken_vehicle: broken down car
+  lane_closed_sign: lane closed sign
+  temporary_barricade: temporary construction barricade
+  road_digging: road excavation
+  damaged_road: damaged asphalt road
+  emergency_vehicle: ambulance
+  crane: construction crane
+  bulldozer: bulldozer
+  tractor: tractor
+  auto_rickshaw: auto rickshaw
+  van: van
+  fire_vehicle: fire engine
+  police_vehicle: police car
+construction_weights:
+  construction_cone: 0.08
+  road_barrier: 0.12
+  excavator: 0.5
+  road_roller: 0.45
+  construction_sign: 0.3
+  construction_worker: 0.08
+  lane_closed_sign: 0.35
+  temporary_barricade: 0.3
+  road_digging: 0.5
+  crane: 0.35
+  bulldozer: 0.45
+hazard_weights:
+  road_debris: 0.3
+  crashed_vehicle: 0.6
+  road_block: 0.6
+  pothole: 0.2
+  fallen_tree: 0.7
+  water_logging: 0.65
+  fire: 1.0
+  smoke: 0.6
+  broken_vehicle: 0.35
+  damaged_road: 0.25

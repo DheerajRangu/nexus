@@ -1,0 +1,33 @@
+{
+  "model": "YOLOv8s-Worldv2",
+  "classes": {
+    "construction_cone": "traffic cone",
+    "road_barrier": "concrete road barrier",
+    "excavator": "excavator",
+    "road_roller": "road roller",
+    "construction_sign": "road construction sign",
+    "construction_worker": "construction worker in safety vest",
+    "road_debris": "debris on road",
+    "crashed_vehicle": "crashed car",
+    "road_block": "road barricade",
+    "pothole": "pothole in asphalt",
+    "fallen_tree": "fallen tree blocking road",
+    "water_logging": "flooded road",
+    "fire": "fire",
+    "smoke": "smoke",
+    "broken_vehicle": "broken down car",
+    "lane_closed_sign": "lane closed sign",
+    "temporary_barricade": "temporary construction barricade",
+    "road_digging": "road excavation",
+    "damaged_road": "damaged asphalt road",
+    "emergency_vehicle": "ambulance",
+    "crane": "construction crane",
+    "bulldozer": "bulldozer",
+    "tractor": "tractor",
+    "auto_rickshaw": "auto rickshaw",
+    "van": "van",
+    "fire_vehicle": "fire engine",
+    "police_vehicle": "police car"
+  },
+  "experimental": true
+}

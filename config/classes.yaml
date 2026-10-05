@@ -1,0 +1,21 @@
+names:
+  0: construction_cone
+  1: road_barrier
+  2: excavator
+  3: road_roller
+  4: construction_sign
+  5: construction_worker
+  6: road_debris
+  7: crashed_vehicle
+  8: road_block
+  9: pothole
+  10: fallen_tree
+  11: water_logging
+  12: fire
+  13: smoke
+  14: broken_vehicle
+  15: lane_closed_sign
+  16: temporary_barricade
+  17: road_digging
+  18: damaged_road
+  19: emergency_vehicle
