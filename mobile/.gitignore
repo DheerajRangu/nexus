@@ -7,3 +7,5 @@ web-build/
 *.keystore
 *.p8
 *.p12
+/android/
+/ios/

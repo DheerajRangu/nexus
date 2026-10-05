@@ -18,7 +18,7 @@ Apply each migration once to a fresh local database. Open the URL printed by Wra
 
 ## Native mobile app
 
-The Android/iOS Expo app and its separate [native setup guide](mobile/README.md) live in [`mobile/`](mobile/). It uses Google Maps through `react-native-maps`. Follow the guide to configure platform restricted Maps keys and a reachable AEGIS API origin before creating a native build.
+The Android/iOS Expo app and its separate [native setup guide](mobile/README.md) live in [`mobile/`](mobile/). It uses Google Maps through `react-native-maps` 1.29.11, whose Expo plugin injects the platform-specific Maps SDK configuration. Follow the guide to configure restricted Maps keys and a reachable AEGIS API origin before creating a native build.
 
 ## Demo
 
