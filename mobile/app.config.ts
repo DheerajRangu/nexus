@@ -1,0 +1,4 @@
+import type {ExpoConfig} from 'expo/config';
+const androidKey=process.env.GOOGLE_MAPS_ANDROID_API_KEY??'';
+const iosKey=process.env.GOOGLE_MAPS_IOS_API_KEY??'';
+export default ():ExpoConfig=>({name:'AEGIS',slug:'aegis-mobile',version:'1.0.0',orientation:'portrait',scheme:'aegis',userInterfaceStyle:'dark',newArchEnabled:true,platforms:['ios','android'],ios:{supportsTablet:false,bundleIdentifier:'com.aegis.emergency'},android:{package:'com.aegis.emergency',edgeToEdgeEnabled:true},plugins:['expo-router',['expo-secure-store',{configureAndroidBackup:true,faceIDPermission:'Allow AEGIS to protect your emergency account.'}],['react-native-maps',{androidGoogleMapsApiKey:androidKey,iosGoogleMapsApiKey:iosKey}]],extra:{apiUrl:process.env.EXPO_PUBLIC_AEGIS_API_URL||'https://aegis-emergency-command.dheerajrangu1028.chatgpt.site',androidMapsReady:Boolean(androidKey),iosMapsReady:Boolean(iosKey),eas:{projectId:process.env.EAS_PROJECT_ID}}});

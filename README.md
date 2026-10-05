@@ -16,6 +16,10 @@ npm run start
 
 Apply each migration once to a fresh local database. Open the URL printed by Wrangler (normally http://127.0.0.1:8787). `npm run dev` provides frontend development; use the built Worker for database-backed integration testing.
 
+## Native mobile app
+
+The Android/iOS Expo app and its separate [native setup guide](mobile/README.md) live in [`mobile/`](mobile/). It uses Google Maps through `react-native-maps`. Follow the guide to configure platform restricted Maps keys and a reachable AEGIS API origin before creating a native build.
+
 ## Demo
 
 Click **Start demo** on the command center. This opens the synthetic Administrator session and starts a roughly 45-second scenario. The engine selects A-07 for its advanced trauma and neurocritical equipment, rejects the closest hospital because of ICU/specialist availability, reserves an ICU bed at Manipal, coordinates five junctions, introduces a roadblock, reroutes, prepares the hospital, and completes arrival. The demo resets the shared synthetic network.
@@ -62,6 +66,6 @@ This is a functional presentation prototype, not a production emergency dispatch
 
 Routes and travel estimates use deterministic simulation models rather than live road-network routing. Street-map tiles are fetched from OpenStreetMap for the visible viewport; all markers and traffic events are simulated. No offline tile download is offered. For production usage, configure a dedicated tile/routing provider and real GPS/traffic/hospital integrations. [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/).
 
-Phone OTP is a UI simulation (code 123456); real SMS and password-recovery email delivery are not connected. Real professional account provisioning, verified institutional identities, clinical validation, granular institutional tenancy, production observability, disaster communications, and a native Expo application remain future integration work. This implementation uses responsive web layouts for all roles.
+Phone OTP is a UI simulation (code 123456); real SMS and password-recovery email delivery are not connected. Real professional account provisioning, verified institutional identities, clinical validation, granular institutional tenancy, production observability, and disaster communications remain future integration work. The native Expo app uses the same simulated city data and currently requires a separately reachable authorized API origin.
 
 WebMCP tools are feature-detected for reading role-authorized state, navigating role-authorized views, and starting an Administrator demo. They use the same application APIs; unsupported browsers continue normally. A supported WebMCP execution context was unavailable during local validation.
