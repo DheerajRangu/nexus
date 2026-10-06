@@ -104,7 +104,10 @@ function TrackingScreen(props: {
   const [notice, setNotice] = useState<string | null>(null);
   const [contactError, setContactError] = useState(false);
   const ended = snapshot.phase === "COMPLETED" || snapshot.phase === "CANCELLED";
-  const showForm = snapshot.permissions.canConfirmLocation || correcting;
+  // The development adapter has no real location handoff. Keep the demo focused
+  // on tracking instead of requesting coordinates that cannot reach dispatch.
+  const locationWorkflowAvailable = !snapshot.synthetic;
+  const showForm = locationWorkflowAvailable && (snapshot.permissions.canConfirmLocation || correcting);
   const title = translate(props.lang, snapshot.statusKey as keyof Translation);
   const explanation = explanationText(props.lang, snapshot.explanationKey, snapshot.statusExplanation);
 
@@ -162,6 +165,9 @@ function TrackingScreen(props: {
         ) : null}
       </section>
       {!ended && !showForm ? (
+        snapshot.synthetic && !snapshot.location.confirmedPickup ? <DemoLocationNotice lang={props.lang} /> : null
+      ) : null}
+      {!ended && !showForm ? (
         <TrackingMap
           lang={props.lang}
           pickup={snapshot.location.confirmedPickup}
@@ -217,7 +223,7 @@ function TrackingScreen(props: {
             {translate(props.lang, "contactDriver")}
           </button>
         ) : null}
-        {snapshot.permissions.canCorrectLocation && !correcting && !ended ? (
+        {locationWorkflowAvailable && snapshot.permissions.canCorrectLocation && !correcting && !ended ? (
           <button type="button" className="btn btn-secondary" onClick={() => setCorrecting(true)}>
             {translate(props.lang, "correctAction")}
           </button>
@@ -238,6 +244,19 @@ function TrackingScreen(props: {
         </details>
       ) : null}
     </div>
+  );
+}
+
+function DemoLocationNotice({ lang }: { lang: Lang }) {
+  const whatsappUrl = import.meta.env.VITE_WHATSAPP_LANDING_URL || "https://wa.me/";
+  return (
+    <section className="card space-y-3" data-testid="demo-location-notice">
+      <h3 className="text-lg font-semibold text-ink">{translate(lang, "demoLocationTitle")}</h3>
+      <p className="text-muted">{translate(lang, "demoLocationBody")}</p>
+      <a className="btn btn-primary inline-flex" href={whatsappUrl}>
+        {translate(lang, "openWhatsApp")}
+      </a>
+    </section>
   );
 }
 
