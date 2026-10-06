@@ -1,0 +1,17 @@
+{
+  "intakeWidths": [
+    1920,
+    1440,
+    1366,
+    768,
+    390
+  ],
+  "pinSelection": true,
+  "emptyCoordinatesBlocked": true,
+  "confirmationRequired": true,
+  "requestCreated": "INC-FB669BBBDA",
+  "assignedAmbulance": "AMB-07",
+  "liveTracking": true,
+  "refreshRecovery": true,
+  "browserErrors": []
+}

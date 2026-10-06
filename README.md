@@ -24,3 +24,5 @@ Open http://localhost:5173/control-room and enter the command demo. An empty cit
 Routes/signals are explicitly simulated geographic providers. Optional Google Maps is a display provider. Clinical severity requires EMT confirmation; this demo does not contact real emergency services. See architecture/setup for native and deployment integration boundaries.
 
 Hospital receiving center: open `/hospital` for patient preparation, shared resource reservations, team readiness and MIST handover. See [Hospital command guide](docs/HOSPITAL_COMMAND.md).
+
+Citizen portal: `/citizen` now provides a three-step emergency request, confirmed pickup and live scoped tracking. See [Citizen portal guide](docs/CITIZEN_PORTAL.md).

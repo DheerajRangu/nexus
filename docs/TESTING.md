@@ -21,3 +21,5 @@ Native physical devices, background GPS, external Google Maps keys and physical 
 Run from root: npm run test; npm run lint; npm run typecheck; npm run build. Native: npm --prefix mobile run typecheck; (cd driver-app && flutter analyze). See SETUP.md for optional isolated PostgreSQL/browser configuration.
 
 Hospital command browser: 82-second scenario completed with deterioration, resource reservation, staff substitution, road recovery and patient receipt. No JavaScript errors or horizontal overflow at 1920, 1440, 1366, 768 and 390. Evidence: [hospital-command.json](evidence/hospital-command.json). Screenshots: `/tmp/hospital-*.png`.
+
+Citizen redesign browser: three-step intake, GPS/map pickup, empty-coordinate blocking, explicit confirmation, persisted dispatch, live AMB-07 tracking and refresh recovery passed. No JavaScript errors or horizontal overflow at 1920, 1440, 1366, 768 and 390. Evidence: [citizen-redesign.json](evidence/citizen-redesign.json). Screenshots: `/tmp/citizen-new-*.png`, `/tmp/citizen-tracking-*.png`.
