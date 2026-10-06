@@ -1,8 +1,14 @@
+# Connected workflow and city command demo
+
+The new default command UI is documented in [COMMAND_CENTER.md](COMMAND_CENTER.md). It supports the 22-unit Hyderabad network, operator-ranked dispatch, automatic journey progression, WebSocket updates and controlled disruptions.
+
+For the original four-role acceptance journey below, open `/legacy-operations` for command-room steps. Citizen, driver and hospital URLs remain unchanged.
+
 # One connected emergency demo
 
 Start services using SETUP.md. Open separate browser profiles (cookies differ by role):
 
-1. `/control-room`: Open workspace, Seed demo network. Three ambulances and three hospitals appear from the backend.
+1. `/legacy-operations`: Open workspace, Seed demo network. Three ambulances and three hospitals appear from the backend.
 2. `/citizen`: Enter patient and category, share phone location or confirm a manual pin, confirm patient pickup. A durable incident is created and dispatched.
 3. Command room sees the same incident. HIGH trauma selects ALS AMB-07; nearer BLS AMB-01 is excluded with a reason.
 4. `/driver`: Select AMB-07 and Accept emergency. Citizen now sees the accepted vehicle. Share device GPS or use Move ambulance · demo; all role views consume the same GPS.

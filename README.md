@@ -1,5 +1,7 @@
 # AEGIS — connected emergency response
 
+A full-screen Hyderabad command center with 22 moving demo ambulances, 12 hospitals, 18 cameras, WebSocket updates and operator controls. [Command-center guide](docs/COMMAND_CENTER.md).
+
 One incident, one persistent backend, four realtime interfaces. Citizen SOS → capability-aware dispatch → driver GPS → patient pickup → hospital acceptance → simulated green corridor → live camera evidence → route/ETA updates → handover.
 
 The command room includes the live OmniVision canvas, visual transcript, captured evidence and printable PDF report. Significant findings from registered cameras affect active ambulance routes.
@@ -15,7 +17,7 @@ uvicorn backend.main:app --host 127.0.0.1 --port 8000
 npm run dev
 ```
 
-Open http://localhost:5173/control-room, sign in to the demo workspace and seed the network. Use separate browser profiles for /citizen, /driver and /hospital. Clean-checkout prerequisites/model preparation: [Setup](docs/SETUP.md). Complete demo: [Demo flow](docs/DEMO_FLOW.md).
+Open http://localhost:5173/control-room and enter the command demo. An empty city initializes automatically. Pause/1X/2X/5X, manual dispatch, controlled road/camera events and chaos are server-backed. Use separate browser profiles for /citizen, /driver and /hospital. Clean-checkout prerequisites/model preparation: [Setup](docs/SETUP.md). Complete demo: [Demo flow](docs/DEMO_FLOW.md).
 
 [Architecture](docs/ARCHITECTURE.md) · [Branch integration](docs/BRANCH_INTEGRATION.md) · [API](docs/API.md) · [Realtime events](docs/REALTIME_EVENTS.md) · [Database](docs/DATABASE.md) · [Vision details](docs/OMNIVISION.md) · [Scenario testing](docs/SCENARIO_TESTING.md)
 

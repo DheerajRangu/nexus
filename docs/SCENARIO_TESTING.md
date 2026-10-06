@@ -1,6 +1,6 @@
 # Testing different road scenarios
 
-Open http://localhost:5173/control-room, sign in, open **AI Camera**, then click **Videos**, choose a scenario and press **Play**. Start with FAST so latency and frame dropping are easy to assess. Switch the transcript to **All** to see routine condition changes. **Details** opens confidence, camera-motion caveats and score explanations; the main panel remains compact.
+Open http://localhost:5173/control-room, sign in, open **Camera AI**, select a camera tile, then click **Videos**, choose a scenario and press **Play**. Start with FAST so latency and frame dropping are easy to assess. Switch the transcript to **All** to see routine condition changes. **Details** opens confidence, camera-motion caveats and score explanations; the main panel remains compact.
 
 The clips are also available in `videos/samples/` for manual upload. These are test inputs, not annotated ground truth or guaranteed model outcomes.
 
