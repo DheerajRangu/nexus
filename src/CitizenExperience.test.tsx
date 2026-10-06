@@ -70,6 +70,19 @@ const handlers = {
 };
 
 describe("tracking screen", () => {
+  it("does not request location in the synthetic flow and offers WhatsApp", () => {
+    render(
+      <CitizenExperience
+        lang="en"
+        model={tracking(snapshot({ location: { confirmationRequired: true, confirmedPickup: null, correction: null }, permissions: { ...snapshot().permissions, canConfirmLocation: true } }))}
+        {...handlers}
+      />,
+    );
+    expect(screen.getByTestId("demo-location-notice")).toBeInTheDocument();
+    expect(screen.queryByTestId("location-form")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open whatsapp/i })).toHaveAttribute("href", "https://wa.me/");
+  });
+
   it("shows an assignment change", () => {
     const { rerender } = render(<CitizenExperience lang="en" model={tracking(snapshot())} {...handlers} />);
     expect(screen.getByTestId("ambulance-label")).toHaveTextContent("Unit 214");
