@@ -58,10 +58,12 @@ def seed_command(city):
             "Finish or cancel existing non-command-demo incidents before resetting the city",
         )
     history = city["events"]
+    staff_grants = city.get("hospitalStaffGrants", {})
     base = demo_seed()
     city.clear()
     city.update(base)
     city["events"] = history
+    city["hospitalStaffGrants"] = staff_grants
     city["cityName"] = "Hyderabad"
     city["simulationControl"] = {
         "running": True,
@@ -269,7 +271,7 @@ def tick():
                     sequence=ambulance["sequence"] + 1,
                 )
         for incident in list(city["incidents"]):
-            if incident["status"] in service.TERMINAL:
+            if incident["status"] in service.TERMINAL or incident.get("hospitalDemoId"):
                 continue
             status = incident["status"]
             phase = incident.get("simulationPhaseAge", 0) + step

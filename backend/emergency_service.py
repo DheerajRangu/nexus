@@ -407,6 +407,8 @@ def hospital_rankings(city, incident):
             hospital["icuBeds"] - len(hospital["reservations"]) + (1 if own else 0)
         )
         reasons = []
+        if not hospital.get("acceptancePolicy", {}).get(incident["emergencyType"], True):
+            reasons.append("Hospital acceptance policy excludes this emergency type")
         if hospital["diversion"] or not hospital["erAvailable"]:
             reasons.append("Emergency receiving unavailable")
         if hospital["id"] in incident["rejectedHospitals"]:

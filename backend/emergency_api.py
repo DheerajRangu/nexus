@@ -52,6 +52,13 @@ def require(request, roles, resource=None):
         raise HTTPException(403, "Role cannot perform this action")
     if resource and user["role"] != "SYSTEM_ADMIN" and user["resourceId"] != resource:
         raise HTTPException(403, "Resource belongs to another operator")
+    if user["role"] == "HOSPITAL_OPERATOR" and request.method not in {"GET", "HEAD"}:
+        from backend.emergency_store import hashed
+        token = request.cookies.get("aegis_ops") or request.headers.get("authorization", "").removeprefix("Bearer ")
+        staff_role = read_city().get("hospitalStaffGrants", {}).get(hashed(token or ""), "COMMANDER")
+        if staff_role == "VIEWER": raise HTTPException(403, "Viewer access is read-only")
+        if request.url.path.endswith("/capacity") and staff_role not in {"COMMANDER", "ADMIN", "RESOURCE_COORDINATOR"}: raise HTTPException(403, "Hospital capacity permission required")
+        if request.url.path.endswith(("/hospital-accept", "/hospital-reject", "/handover")) and staff_role not in {"COMMANDER", "ADMIN", "EMERGENCY_PHYSICIAN", "TRAUMA_LEAD", "NURSE_COORDINATOR"}: raise HTTPException(403, "Clinical receiving permission required")
     origin = request.headers.get("origin")
     if (
         request.method not in {"GET", "HEAD"}
@@ -210,6 +217,7 @@ def seed(request: Request):
                 409, "Complete or cancel active emergencies before reseeding"
             )
         old_events = city["events"]
+        city.pop("hospitalOperations", None)
         city.update(demo_seed())
         city["events"] = old_events
         service.emit(city, "demo.seeded")
@@ -220,7 +228,7 @@ def seed(request: Request):
 
 def scoped(city, user):
     if user["role"] in {"CONTROL_ROOM_OPERATOR", "SYSTEM_ADMIN"}:
-        return city
+        return {key: value for key, value in city.items() if key != "hospitalStaffGrants"}
     result = copy.deepcopy(city)
     if user["role"] == "AMBULANCE_DRIVER":
         result["incidents"] = [
@@ -243,6 +251,8 @@ def scoped(city, user):
             if any(e["ambulanceId"] == a["id"] for e in result["incidents"])
         ]
         result["hospitals"] = []
+    result.pop("hospitalStaffGrants", None)
+    result["hospitalOperations"] = ({user["resourceId"]: city.get("hospitalOperations", {}).get(user["resourceId"])} if user["role"] == "HOSPITAL_OPERATOR" and user["resourceId"] in city.get("hospitalOperations", {}) else {})
     ids = {e["id"] for e in result["incidents"]}
     for key in ["assignments", "routes", "corridors"]:
         result[key] = [x for x in city[key] if x["incidentId"] in ids]
@@ -251,9 +261,9 @@ def scoped(city, user):
         for e in city["events"]
         if e.get("incidentId") in ids
         or (
-            e["type"] == "hospital.capacity.updated"
+            e["type"].startswith("hospital.")
             and user["role"] == "HOSPITAL_OPERATOR"
-            and e["details"]["hospitalId"] == user["resourceId"]
+            and e["details"].get("hospitalId") == user["resourceId"]
         )
     ]
     return result

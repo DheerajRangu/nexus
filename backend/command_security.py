@@ -18,7 +18,7 @@ class CommandSecurity(BaseHTTPMiddleware):
             "POST",
             "PATCH",
             "DELETE",
-        } and request.url.path.startswith(("/api/command/", "/api/demo/")):
+        } and request.url.path.startswith(("/api/command/", "/api/demo/", "/api/hospital-command/")):
             key = request.client.host if request.client else "local"
             stamp = time.monotonic()
             with self.lock:

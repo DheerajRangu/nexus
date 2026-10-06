@@ -32,6 +32,9 @@ async def lifespan(app):
             from backend.command_simulation import tick
             try:await asyncio.to_thread(tick)
             except Exception:logging.getLogger("aegis").exception("simulation_tick_failed")
+            from backend.hospital_command import tick as hospital_tick
+            try:await asyncio.to_thread(hospital_tick)
+            except Exception:logging.getLogger("aegis").exception("hospital_simulation_tick_failed")
             await asyncio.sleep(1)
     task=asyncio.create_task(monitor())
     try:yield
@@ -213,3 +216,6 @@ app.include_router(command_router)
 
 from backend.command_security import CommandSecurity
 app.add_middleware(CommandSecurity)
+
+from backend.hospital_command import router as hospital_command_router
+app.include_router(hospital_command_router)

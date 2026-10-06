@@ -167,6 +167,9 @@ def mutate(fn):
                 city = copy.deepcopy(row.data)
                 before = len(city["events"])
                 result = fn(city)
+                if city.get("hospitalOperations"):
+                    from backend.hospital_command import synchronize
+                    synchronize(city)
                 next_revision = revision + 1
                 changed = db.execute(
                     update(EmergencyCity)

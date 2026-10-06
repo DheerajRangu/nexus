@@ -118,6 +118,35 @@ def command(incident_id: str, action: str, body: dict, request: Request):
                     :1000
                 ],
             )
+        elif action == "hospital-message":
+            if not i["hospitalId"]:
+                raise HTTPException(409, "Select hospital first")
+            message = str(body.get("text", "")).strip()
+            if not message or len(message) > 2000:
+                raise HTTPException(422, "Provide a message of 1–2000 characters")
+            from backend.hospital_command import ensure, audit
+
+            ops = ensure(city, i["hospitalId"])
+            ops["messages"].append(
+                {
+                    "id": uid("MSG"),
+                    "incidentId": i["id"],
+                    "sender": "COMMAND_ROOM",
+                    "text": message,
+                    "channel": "COMMAND",
+                    "createdAt": now(),
+                }
+            )
+            ops["messages"] = ops["messages"][-300:]
+            audit(
+                city,
+                ops,
+                "message.sent",
+                i,
+                text=message,
+                channel="COMMAND",
+                sender="COMMAND_ROOM",
+            )
         elif action == "hospital-alert":
             if not i["hospitalId"]:
                 raise HTTPException(409, "Select hospital first")
@@ -167,7 +196,7 @@ def alert(event_id: str, action: str, request: Request):
 
 @router.get("/api/system/health")
 def health(request: Request):
-    require(request, {"CONTROL_ROOM_OPERATOR"})
+    require(request, {"CONTROL_ROOM_OPERATOR", "HOSPITAL_OPERATOR"})
     city = read_city()
     return {
         "timestamp": now(),
