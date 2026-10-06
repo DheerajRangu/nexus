@@ -1,0 +1,18 @@
+vehicle_model: yolo26n.pt
+tracker: bytetrack.yaml
+confidence: 0.3
+iou: 0.5
+stationary_px_sec: 5.0
+stationary_seconds: 3.0
+vehicle_capacity: 35
+traffic_weights: {density: 0.1, occupancy: 0.35, stopped: 0.3, low_motion: 0.25}
+free_flow_px_sec: 60
+smoothing_seconds: 2
+event_persistence_seconds: 1
+traffic_thresholds: [0.2, 0.4, 0.6, 0.8]
+max_upload_mb: 500
+modes:
+  FAST: {stride: 3, imgsz: 416, segmentation_size: 384, evidence_seconds: 1.0}
+  BALANCED: {stride: 2, imgsz: 640, segmentation_size: 512, evidence_seconds: 0.7}
+  DEEP: {stride: 1, imgsz: 960, segmentation_size: 768, evidence_seconds: 0.4}
+  ACCURATE: {stride: 1, imgsz: 960, segmentation_size: 768, evidence_seconds: 0.4}

@@ -1,0 +1,76 @@
+[
+  {
+    "file": "fixture-camera-shake.mp4",
+    "durationSeconds": 12.01,
+    "fps": 29.97,
+    "width": 640,
+    "height": 360,
+    "decodedFrames": 360,
+    "synthetic": true
+  },
+  {
+    "file": "fixture-stop-and-resume.mp4",
+    "durationSeconds": 20.02,
+    "fps": 29.97,
+    "width": 640,
+    "height": 360,
+    "decodedFrames": 600,
+    "synthetic": true
+  },
+  {
+    "file": "highway-traffic.mp4",
+    "durationSeconds": 29.43,
+    "fps": 29.97,
+    "width": 1280,
+    "height": 720,
+    "decodedFrames": 882,
+    "synthetic": false
+  },
+  {
+    "file": "scenario-city-traffic.mp4",
+    "durationSeconds": 11.08,
+    "fps": 29.97,
+    "width": 720,
+    "height": 1280,
+    "decodedFrames": 332,
+    "synthetic": false
+  },
+  {
+    "file": "scenario-construction.mp4",
+    "durationSeconds": 16.29,
+    "fps": 24.0,
+    "width": 1280,
+    "height": 720,
+    "decodedFrames": 391,
+    "synthetic": false
+  },
+  {
+    "file": "scenario-rainy-night.mp4",
+    "durationSeconds": 42.33,
+    "fps": 23.98,
+    "width": 1280,
+    "height": 720,
+    "decodedFrames": 1015,
+    "synthetic": false
+  },
+  {
+    "file": "scenario-road-block.mp4",
+    "durationSeconds": 10.47,
+    "fps": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "decodedFrames": 314,
+    "synthetic": false,
+    "source": "https://videos.pexels.com/video-files/7297442/7297442-hd_1920_1080_30fps.mp4"
+  },
+  {
+    "file": "scenario-accident-aftermath.mp4",
+    "durationSeconds": 21.32,
+    "fps": 29.97,
+    "width": 1280,
+    "height": 720,
+    "decodedFrames": 639,
+    "synthetic": false,
+    "source": "https://videos.pexels.com/video-files/3974558/3974558-hd_1280_720_30fps.mp4"
+  }
+]
