@@ -29,7 +29,10 @@ async def lifespan(app):
         while True:
             try:await asyncio.to_thread(check_deadlines)
             except Exception:logging.getLogger('aegis').exception('emergency_monitor_failed')
-            await asyncio.sleep(2)
+            from backend.command_simulation import tick
+            try:await asyncio.to_thread(tick)
+            except Exception:logging.getLogger("aegis").exception("simulation_tick_failed")
+            await asyncio.sleep(1)
     task=asyncio.create_task(monitor())
     try:yield
     finally:
@@ -204,3 +207,9 @@ app.include_router(citizen_router)
 
 from backend.mobile_compat import router as mobile_router
 app.include_router(mobile_router)
+
+from backend.command_api import router as command_router
+app.include_router(command_router)
+
+from backend.command_security import CommandSecurity
+app.add_middleware(CommandSecurity)

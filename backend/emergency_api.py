@@ -86,6 +86,7 @@ class Point(BaseModel):
 
 
 class IncidentInput(BaseModel):
+    dispatchImmediately: bool = True
     submissionId: str = Field(min_length=8, max_length=100)
     patientName: str = Field(min_length=1, max_length=100)
     phone: str = Field(default="", max_length=30)
@@ -94,6 +95,8 @@ class IncidentInput(BaseModel):
     emergencyType: Literal[
         "ROAD_ACCIDENT", "CARDIAC", "STROKE", "BREATHING", "INJURY", "OTHER"
     ] = "ROAD_ACCIDENT"
+    district: str = Field(default="", max_length=100)
+    patientCount: int = Field(default=1, ge=1, le=50)
     description: str = Field(default="", max_length=2000)
     severity: Literal["LOW", "MODERATE", "HIGH", "CRITICAL"] = "HIGH"
 
