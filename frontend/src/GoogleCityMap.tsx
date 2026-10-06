@@ -22,8 +22,13 @@ export function GoogleCityMap({
     line = useRef<InstanceType<Maps["Polyline"]> | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      onFailure();
+      return;
+    }
     let active = true;
-    void loadGoogle(import.meta.env.VITE_GOOGLE_MAPS_API_KEY)
+    void loadGoogle(apiKey)
       .then((m) => {
         if (!active || !element.current) return;
         map.current = new m.maps.Map(element.current, {

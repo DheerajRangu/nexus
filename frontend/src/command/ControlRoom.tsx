@@ -114,7 +114,8 @@ export function ControlRoom() {
     [time, setTime] = useState(new Date()),
     [toast, setToast] = useState<Event | null>(null),
     [camera, setCamera] = useState(""),
-    [loginKey, setLoginKey] = useState("");
+    [loginKey, setLoginKey] = useState(""),
+    [hospitalMessage, setHospitalMessage] = useState("");
   const [patient, setPatient] = useState("Demo patient"),
     [type, setType] = useState("ROAD_ACCIDENT"),
     [severity, setSeverity] = useState("CRITICAL"),
@@ -1355,6 +1356,64 @@ export function ControlRoom() {
               </div>
               <small>Simulated controller · route-specific green windows</small>
             </section>
+            {hospital && (
+              <section>
+                <div className="section-heading">
+                  <Radio size={15} /> HOSPITAL COMMAND LINK
+                </div>
+                <div className="journey-timeline">
+                  {(
+                    (
+                      city as City & {
+                        hospitalOperations?: Record<
+                          string,
+                          {
+                            messages: {
+                              id: string;
+                              incidentId: string;
+                              text: string;
+                              sender: string;
+                              channel: string;
+                            }[];
+                          }
+                        >;
+                      }
+                    ).hospitalOperations?.[hospital.id]?.messages || []
+                  )
+                    .filter(
+                      (m) =>
+                        m.incidentId === incident.id && m.channel === "COMMAND",
+                    )
+                    .slice(-5)
+                    .map((m) => (
+                      <p key={m.id}>
+                        <b>{m.sender}</b>
+                        <br />
+                        {m.text}
+                      </p>
+                    ))}
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void command("hospital-message", {
+                      text: hospitalMessage,
+                    })?.then(() => setHospitalMessage(""));
+                  }}
+                >
+                  <input
+                    aria-label="Message hospital team"
+                    placeholder="Send receiving-team update…"
+                    maxLength={2000}
+                    value={hospitalMessage}
+                    onChange={(e) => setHospitalMessage(e.target.value)}
+                  />
+                  <button disabled={busy || !hospitalMessage.trim()}>
+                    Send hospital message
+                  </button>
+                </form>
+              </section>
+            )}
             <section>
               <div className="section-heading">
                 <Clock size={15} />

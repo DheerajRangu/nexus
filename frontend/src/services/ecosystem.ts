@@ -7,6 +7,11 @@ export type Event = {
   details: Record<string, unknown>;
 };
 export type Incident = {
+  description?: string;
+  notes?: string;
+  sex?: string;
+  deteriorating?: boolean;
+  hospitalDemoId?: string;
   completionReport?: {
     responseSeconds: number;
     corridorEstimateSeconds: number;

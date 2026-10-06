@@ -15,7 +15,7 @@ export function Platform(){
  return <OperationsPortal/>;
 }
 function OperationsPortal(){
- const pathRole=location.pathname.startsWith('/driver')?'AMBULANCE_DRIVER':location.pathname.startsWith('/hospital')?'HOSPITAL_OPERATOR':'CONTROL_ROOM_OPERATOR';
+ const pathRole=location.pathname.startsWith('/driver')?'AMBULANCE_DRIVER':(location.pathname.startsWith('/hospital')||location.pathname.startsWith('/legacy-hospital'))?'HOSPITAL_OPERATOR':'CONTROL_ROOM_OPERATOR';
  const [city,setCity]=useState<City>(emptyCity),[user,setUser]=useState<Operator|null>(null),[role,setRole]=useState(pathRole),[resource,setResource]=useState(pathRole==='AMBULANCE_DRIVER'?'AMB-07':'HOSP-B'),[key,setKey]=useState('');
  const [page,setPage]=useState('Overview'),[selected,setSelected]=useState(''),[camera,setCamera]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[connection,setConnection]=useState('Connecting');
  const [demoResources,setDemoResources]=useState<{ambulances:{id:string;name:string}[];hospitals:{id:string;name:string}[]}|null>(null);
