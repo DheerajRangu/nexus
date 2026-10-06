@@ -13,7 +13,7 @@ Interactive schema: `http://localhost:8000/docs`; machine schema: `/openapi.json
 | GET /api/incidents/{id} | Scoped incident |
 | GET /api/incidents/{id}/timeline | Durable incident history |
 | POST /api/incidents/{id}/dispatch | Dispatch / retry escalation |
-| POST /api/assignments/{id}/receipt, accept, reject | Assigned driver only |
+| POST /api/assignments/{id}/receipt, acknowledgement | Assigned driver only; both record delivery facts and cannot change a confirmed assignment |
 | POST /api/ambulances/{id}/location | Monotonic sequence, UTC timestamp, location, heading, speed |
 | POST /api/incidents/{id}/arrived-patient, pickup, assessment, arrived-hospital | Assigned driver |
 | POST /api/incidents/{id}/select-hospital, reroute, cancel | Command room |

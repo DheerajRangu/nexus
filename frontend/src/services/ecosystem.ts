@@ -9,7 +9,7 @@ export type Route={id:string;incidentId:string;version:number;geometry:Point[];e
 export type RoadEvent=Point&{id:string;type:string;severity:string;description:string;source:string;cameraId?:string;affectedIncidentIds:string[];evidenceImage?:string;active:boolean};
 export type Camera={id:string;name:string;roadName:string;location:Point;lastEventId:string|null};
 export type Corridor={id:string;incidentId:string;status:string;version:number;routeId:string;signals:{id:string;location:Point;etaSeconds:number;state:string;windowSeconds:number;simulation:boolean}[]};
-export type City={revision:number;simulation:boolean;incidents:Incident[];ambulances:Ambulance[];hospitals:Hospital[];assignments:{id:string;incidentId:string;status:string;deadlineAt:string}[];routes:Route[];roadEvents:RoadEvent[];cameras:Camera[];corridors:Corridor[];events:Event[]};
+export type City={revision:number;simulation:boolean;incidents:Incident[];ambulances:Ambulance[];hospitals:Hospital[];assignments:{id:string;incidentId:string;status:string;receivedAt?:string|null;acknowledgedAt?:string|null;acknowledgementDeadlineAt?:string}[];routes:Route[];roadEvents:RoadEvent[];cameras:Camera[];corridors:Corridor[];events:Event[]};
 export type Operator={role:string;resourceId:string|null};
 export async function core<T>(path:string,body?:unknown,method=body===undefined?'GET':'POST'):Promise<T>{
  const response=await fetch(path,{method,credentials:'include',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});

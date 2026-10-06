@@ -70,8 +70,6 @@ def ambulance_rankings(city, incident):
         ).total_seconds()
         if age > 120:
             reasons.append("Location stale")
-        if ambulance["id"] in incident.get("rejectedAmbulances", []):
-            reasons.append("Driver already rejected this incident")
         missing = set(required["equipment"]) - set(ambulance["equipment"])
         if missing:
             reasons.append("Missing equipment: " + ", ".join(sorted(missing)))
@@ -125,19 +123,19 @@ def dispatch(city, incident):
         )
         return incident
     ambulance = find(city, "ambulances", selected["ambulanceId"])
-    ambulance["status"] = "ASSIGNED"
+    ambulance["status"] = "EN_ROUTE_TO_PATIENT"
     ambulance["workload"] += 1
     assignment = {
         "id": uid("ASN"),
         "incidentId": incident["id"],
         "ambulanceId": ambulance["id"],
         "driverId": ambulance["driverId"],
-        "status": "NOTIFIED",
+        "status": "CONFIRMED",
         "assignedAt": now(),
-        "deadlineAt": datetime.fromtimestamp(
+        "acknowledgementDeadlineAt": datetime.fromtimestamp(
             datetime.now(timezone.utc).timestamp() + 60, timezone.utc
         ).isoformat(),
-        "acceptedAt": None,
+        "acknowledgedAt": None,
         "receivedAt": None,
     }
     city["assignments"].append(assignment)
@@ -158,6 +156,14 @@ def dispatch(city, incident):
         "ambulance.driver.notified",
         driverId=ambulance["driverId"],
     )
+    transition(
+        city,
+        incident,
+        "EN_ROUTE_TO_PATIENT",
+        "ambulance.assignment.confirmed",
+        assignmentId=assignment["id"],
+    )
+    update_route(city, incident, "Backend-confirmed dispatch")
     return incident
 
 
@@ -191,7 +197,6 @@ def create_incident(city, body):
         "etaSeconds": None,
         "distanceMeters": None,
         "timeline": [],
-        "rejectedAmbulances": [],
         "rejectedHospitals": [],
         "vitals": {},
         "trackingTokenIssued": False,
@@ -212,46 +217,15 @@ def current_assignment(city, assignment_id):
     return assignment, incident
 
 
-def accept(city, assignment_id):
+def acknowledge(city, assignment_id):
     assignment, incident = current_assignment(city, assignment_id)
-    if assignment["status"] == "ACCEPTED":
-        return incident
-    if assignment["status"] != "NOTIFIED":
-        raise HTTPException(409, "Assignment no longer awaits acceptance")
-    assignment.update(status="ACCEPTED", acceptedAt=now())
-    transition(
-        city,
-        incident,
-        "DRIVER_ACCEPTED",
-        "ambulance.assignment.accepted",
-        assignmentId=assignment_id,
-    )
-    transition(city, incident, "EN_ROUTE_TO_PATIENT")
-    find(city, "ambulances", assignment["ambulanceId"])["status"] = (
-        "EN_ROUTE_TO_PATIENT"
-    )
-    update_route(city, incident, "Driver accepted assignment")
+    if assignment["status"] != "CONFIRMED":
+        raise HTTPException(409, "Assignment is no longer active")
+    if assignment["acknowledgedAt"] is None:
+        assignment["acknowledgedAt"] = now()
+        service_event = "ambulance.assignment.acknowledged"
+        emit(city, service_event, incident, assignmentId=assignment_id)
     return incident
-
-
-def reject(city, assignment_id, reason="Driver unavailable"):
-    assignment, incident = current_assignment(city, assignment_id)
-    if assignment["status"] != "NOTIFIED":
-        raise HTTPException(409, "Only pending assignments may be rejected")
-    assignment.update(status="REJECTED", reason=reason)
-    ambulance = find(city, "ambulances", assignment["ambulanceId"])
-    ambulance["status"] = "AVAILABLE"
-    ambulance["workload"] = max(0, ambulance["workload"] - 1)
-    incident["rejectedAmbulances"].append(ambulance["id"])
-    transition(
-        city,
-        incident,
-        "DRIVER_REJECTED",
-        "ambulance.assignment.rejected",
-        reason=reason,
-    )
-    transition(city, incident, "AMBULANCE_REASSIGNING")
-    return dispatch(city, incident)
 
 
 def destination(city, incident):

@@ -11,7 +11,10 @@ def check_deadlines():
     overdue = [
         a["id"]
         for a in city["assignments"]
-        if a["status"] == "NOTIFIED" and datetime.fromisoformat(a["deadlineAt"]) < stamp
+        if a["status"] == "CONFIRMED"
+        and a["acknowledgedAt"] is None
+        and a.get("acknowledgementOverdueAt") is None
+        and datetime.fromisoformat(a["acknowledgementDeadlineAt"]) < stamp
     ]
     if not overdue:
         return
@@ -19,12 +22,12 @@ def check_deadlines():
     def run(city):
         for key in overdue:
             assignment = service.find(city, "assignments", key)
-            if assignment["status"] != "NOTIFIED":
+            if assignment["status"] != "CONFIRMED" or assignment["acknowledgedAt"]:
                 continue
             incident = service.find(city, "incidents", assignment["incidentId"])
             service.emit(
                 city, "ambulance.acknowledgement.overdue", incident, assignmentId=key
             )
-            service.reject(city, key, "Acknowledgement deadline expired")
+            assignment["acknowledgementOverdueAt"] = stamp.isoformat()
 
     mutate(run)

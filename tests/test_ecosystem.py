@@ -61,10 +61,17 @@ def test_complete_connected_journey_road_reroute_and_hospital_capacity():
         city = state(operator)
         incident = city["incidents"][0]
         assert incident["ambulanceId"] == "AMB-07"  # Nearer BLS unit excluded.
-        assert incident["status"] == "DRIVER_NOTIFIED"
+        assert incident["status"] == "EN_ROUTE_TO_PATIENT"
         login(driver, "AMBULANCE_DRIVER", "AMB-07")
         r = driver.post(
-            "/api/assignments/" + incident["assignmentId"] + "/accept", json={}
+            "/api/assignments/" + incident["assignmentId"] + "/receipt", json={}
+        )
+        assert r.status_code == 200, r.text
+        r = driver.post(
+            "/api/assignments/"
+            + incident["assignmentId"]
+            + "/acknowledgement",
+            json={},
         )
         assert r.status_code == 200, r.text
         assert (
@@ -145,7 +152,8 @@ def test_complete_connected_journey_road_reroute_and_hospital_capacity():
         event_types = [e["type"] for e in completed["timeline"]]
         for kind in [
             "incident.created",
-            "ambulance.assignment.accepted",
+            "ambulance.assignment.confirmed",
+            "ambulance.assignment.acknowledged",
             "ambulance.location.updated",
             "patient.picked_up",
             "hospital.selected",
@@ -160,7 +168,7 @@ def test_complete_connected_journey_road_reroute_and_hospital_capacity():
         assert state(operator)["ambulances"][2]["status"] == "AVAILABLE"
 
 
-def test_driver_rejection_and_role_isolation():
+def test_driver_cannot_accept_or_reject_a_confirmed_assignment_and_role_isolation():
     clean()
     with (
         TestClient(app) as operator,
@@ -172,18 +180,18 @@ def test_driver_rejection_and_role_isolation():
         created = create(citizen)
         incident = state(operator)["incidents"][0]
         login(driver, "AMBULANCE_DRIVER", "AMB-07")
-        rejected = driver.post(
-            "/api/assignments/" + incident["assignmentId"] + "/reject",
-            json={"reason": "Equipment issue"},
-        )
-        assert rejected.status_code == 200, rejected.text
-        new = rejected.json()
-        assert new["ambulanceId"] == "AMB-02"
         assert (
             driver.post(
-                "/api/assignments/" + new["assignmentId"] + "/accept", json={}
+            "/api/assignments/" + incident["assignmentId"] + "/reject",
+            json={"reason": "Equipment issue"},
             ).status_code
-            == 403
+            == 404
+        )
+        assert (
+            driver.post(
+                "/api/assignments/" + incident["assignmentId"] + "/accept", json={}
+            ).status_code
+            == 404
         )
         assert (
             driver.patch(
@@ -199,13 +207,26 @@ def test_driver_rejection_and_role_isolation():
         login(driver, "AMBULANCE_DRIVER", "AMB-02")
         assert (
             driver.post(
-                "/api/assignments/" + new["assignmentId"] + "/accept", json={}
+                "/api/assignments/"
+                + incident["assignmentId"]
+                + "/acknowledgement",
+                json={},
+            ).status_code
+            == 403
+        )
+        login(driver, "AMBULANCE_DRIVER", "AMB-07")
+        assert (
+            driver.post(
+                "/api/assignments/"
+                + incident["assignmentId"]
+                + "/acknowledgement",
+                json={},
             ).status_code
             == 200
         )
         assert (
             citizen.get("/api/v1/citizen/tracking").json()["assignment"]["ambulanceId"]
-            == "AMB-02"
+            == "AMB-07"
         )
 
 
@@ -223,7 +244,6 @@ def test_camera_bridge_real_evidence_event_reroutes_active_route():
         create(citizen)
         i = state(operator)["incidents"][0]
         login(driver, "AMBULANCE_DRIVER", i["ambulanceId"])
-        driver.post("/api/assignments/" + i["assignmentId"] + "/accept", json={})
         city = state(operator)
         i = city["incidents"][0]
         route = next(r for r in city["routes"] if r["id"] == i["routeId"])
@@ -285,7 +305,7 @@ def test_expired_token_and_invalid_transition():
         )
 
 
-def test_driver_timeout_reassigns_and_native_contract_uses_shared_state():
+def test_driver_acknowledgement_overdue_does_not_reassign_and_native_contract_uses_shared_state():
     clean()
     from backend.emergency_monitor import check_deadlines
     from backend.emergency_store import mutate
@@ -300,13 +320,14 @@ def test_driver_timeout_reassigns_and_native_contract_uses_shared_state():
         create(citizen)
 
         def expire(city):
-            city["assignments"][0]["deadlineAt"] = "2020-01-01T00:00:00+00:00"
+            city["assignments"][0]["acknowledgementDeadlineAt"] = "2020-01-01T00:00:00+00:00"
 
         mutate(expire)
         check_deadlines()
         incident = state(operator)["incidents"][0]
-        assert incident["ambulanceId"] == "AMB-02"
-        login(driver, "AMBULANCE_DRIVER", "AMB-02")
+        assert incident["ambulanceId"] == "AMB-07"
+        assert incident["status"] == "EN_ROUTE_TO_PATIENT"
+        login(driver, "AMBULANCE_DRIVER", "AMB-07")
         native = driver.get("/api/v1/driver/me/snapshot").json()
         assert native["assignment"]["emergencyId"] == incident["id"]
         accepted = driver.post(
@@ -338,7 +359,6 @@ def test_irrelevant_road_event_does_not_reroute_and_state_survives_new_client():
         create(citizen)
         incident = state(operator)["incidents"][0]
         login(driver, "AMBULANCE_DRIVER", incident["ambulanceId"])
-        driver.post("/api/assignments/" + incident["assignmentId"] + "/accept", json={})
         original = state(operator)["incidents"][0]["routeId"]
         event = operator.post(
             "/api/road-events",
@@ -403,12 +423,6 @@ def test_blocked_route_recovery_and_cancellation_release_resources():
         create(citizen)
         incident = state(operator)["incidents"][0]
         login(driver, "AMBULANCE_DRIVER", incident["ambulanceId"])
-        assert (
-            driver.post(
-                "/api/assignments/" + incident["assignmentId"] + "/accept", json={}
-            ).status_code
-            == 200
-        )
         ambulance = next(
             a
             for a in state(operator)["ambulances"]

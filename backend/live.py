@@ -160,10 +160,10 @@ class EventMemory:
         self.pending=[];self.buffer.clear();self.brain_cursor=0;self.last_metrics=None;self.last_frame=-10.;self.last_timeline=-10.
         for event in self.events:
             if event['state']!='ENDED':event.update(state='ENDED',endReason='Playback segment ended; continued identity not established')
-    def persist(self,packet):
+    def persist(self,packet,complete=None):
         scene=packet['intelligence']
         important=[e for e in self.events if e['severity']!='INFO']
-        report={'sessionId':self.session.id,'source':self.session.source_name,'status':self.session.status,'complete':self.session.status=='ended',
+        report={'sessionId':self.session.id,'source':self.session.source_name,'status':'ended' if complete else self.session.status,'complete':self.session.status=='ended' if complete is None else complete,
             'coverageNote':'Sampled live observations only. Skipped frames and manual seeks leave gaps; track IDs are segment-local.',
             'segments':self.session.segments,'processedFrames':self.session.processed,'droppedFrames':self.session.frames.dropped,
             'summary':road_story(scene,self.events),'keyFindings':list(dict.fromkeys(e.get('title',e['eventType']) for e in important))[-8:],
@@ -262,10 +262,13 @@ class LiveSession:
                 item=self.frames.take()
                 if item is None:
                     if self.eof_generation==self.generation and self.last_packet:
-                        self.playing=False;self.status='ended';self.position=self.duration
+                        # Do not publish `ended` until the final report has been
+                        # atomically persisted.  On Windows a reader can otherwise
+                        # observe the status while the report replacement is locked.
+                        self.playing=False;self.status='finishing';self.position=self.duration
                         for event in self.memory.events:
                             if event['severity'] in {'WARNING','CRITICAL'}:self.memory.schedule_clip(event,self.last_packet['videoTimestamp'])
-                        self.memory.reset();self.memory.persist(self.last_packet)
+                        self.memory.reset();self.memory.persist(self.last_packet,complete=True);self.status='ended'
                     self.closed.wait(.005);continue
                 gen,seg,number,stamp,decoded,frame=item
                 if gen!=self.generation or seg!=segment:continue

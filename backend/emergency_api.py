@@ -362,17 +362,16 @@ def assignment_action(
     require(request, {"AMBULANCE_DRIVER"}, assignment["ambulanceId"])
 
     def run(city):
-        if action == "accept":
-            return service.accept(city, assignment_id)
-        if action == "reject":
-            return service.reject(
-                city, assignment_id, str(body.get("reason", "Driver unavailable"))[:500]
-            )
         if action == "receipt":
             assignment, incident = service.current_assignment(city, assignment_id)
-            assignment["receivedAt"] = now()
-            service.emit(city, "ambulance.assignment.received", incident)
+            if assignment["status"] != "CONFIRMED":
+                raise HTTPException(409, "Assignment is no longer active")
+            if assignment["receivedAt"] is None:
+                assignment["receivedAt"] = now()
+                service.emit(city, "ambulance.assignment.received", incident)
             return incident
+        if action == "acknowledgement":
+            return service.acknowledge(city, assignment_id)
         raise HTTPException(404, "Unknown assignment action")
 
     return mutate(run)

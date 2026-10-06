@@ -46,7 +46,7 @@ def snapshot(city, user):
         else "AMBULANCE_APPROACHING"
         if status in {"EN_ROUTE_TO_PATIENT", "REROUTING", "ROAD_BLOCKED"}
         else "AMBULANCE_ASSIGNED"
-        if status == "DRIVER_ACCEPTED"
+        if status in {"AMBULANCE_ASSIGNED", "DRIVER_NOTIFIED"}
         else "COORDINATING"
     )
     if status in {"REROUTING", "ROAD_BLOCKED"} and incident["hospitalId"]:
@@ -70,10 +70,10 @@ def snapshot(city, user):
         if incident["ambulanceId"]
         else None
     )
-    accepted = bool(
+    assigned = bool(
         incident["assignmentId"]
         and service.find(city, "assignments", incident["assignmentId"])["status"]
-        == "ACCEPTED"
+        == "CONFIRMED"
     )
     route = (
         service.find(city, "routes", incident["routeId"])
@@ -148,7 +148,7 @@ def snapshot(city, user):
             "vehicleType": "ALS" if "ALS" in ambulance["crew"] else "BLS",
             "registrationLabel": ambulance["id"],
         }
-        if ambulance and accepted
+        if ambulance and assigned
         else None,
         "telemetry": {
             "ambulanceId": ambulance["id"],
@@ -158,7 +158,7 @@ def snapshot(city, user):
             "stale": stale,
             "staleAfterSeconds": 30,
         }
-        if ambulance and accepted
+        if ambulance and assigned
         else None,
         "eta": {
             "estimatedArrivalAt": (
@@ -169,10 +169,10 @@ def snapshot(city, user):
             "source": "ROUTING",
             "demonstration": city["simulation"],
         }
-        if accepted and route and not route["blocked"] and not stale and not terminal
+        if assigned and route and not route["blocked"] and not stale and not terminal
         else None,
         "route": {"points": route["geometry"], "updatedAt": route["createdAt"]}
-        if route and accepted and not terminal
+        if route and assigned and not terminal
         else None,
         "hospital": {
             "hospitalId": hospital["id"],

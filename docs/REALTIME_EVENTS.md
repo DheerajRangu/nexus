@@ -7,7 +7,7 @@ Citizen `/api/v1/citizen/events` preserves its restricted v1 contract and versio
 | Event family | Subscribers / effect |
 |---|---|
 | incident.created / updated; dispatch.unavailable | Command room, assigned role views, citizen phase projection |
-| ambulance.assigned / driver.notified / assignment.received / assignment.accepted / assignment.rejected / acknowledgement.overdue | Dispatch and driver; citizen sees accepted assignment only |
+| ambulance.assigned / driver.notified / assignment.confirmed / assignment.received / assignment.acknowledged / acknowledgement.overdue | Dispatch and driver; citizen sees the backend-confirmed assignment immediately |
 | ambulance.location.updated; route.eta.updated | Command map, driver route, hospital ETA, citizen accepted marker/ETA |
 | patient.arrived / picked_up / severity.updated | Driver, command room, selected hospital; hospital ranking changes |
 | hospital.rankings.updated / selected / accepted / rejected / capacity.updated | Hospital, dispatch, driver; capacity loss triggers diversion |

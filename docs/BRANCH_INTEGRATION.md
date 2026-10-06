@@ -4,7 +4,7 @@ Working branch: `aegis-full-system-integration`. Based on `origin/main` / `origi
 
 | Source branch | Merge | Result |
 |---|---|---|
-| aegis-initial-dispatch-module | 82cb7f0 | Java dispatch and Flutter sources retained; eligibility, assignment receipt/acceptance, timeout and telemetry rules ported to shared Python service; Flutter bridge uses that service. |
+| aegis-initial-dispatch-module | 82cb7f0 | Java dispatch and Flutter sources retained; eligibility, backend-confirmed assignment, receipt/acknowledgement audit facts and telemetry rules ported to the shared Python service; Flutter bridge uses that service. |
 | aegis-patient-tracking-v1 | 9dfb3fd | Citizen GPS/pin confirmation, EN/TE/HI, restricted tokens, map interpolation and SSE components retained; synthetic adapter replaced in active runtime. |
 | aegis-road-intelligence | 7ca1eb2 | Live inference, evidence, reports and canvas retained; canvas embedded in command room, located events connected to routes. |
 | aegis-controlroom | Base commit | Visual primitives and Expo retained; durable shared APIs replace independent dashboard state. |

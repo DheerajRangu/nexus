@@ -281,10 +281,6 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
           padding: const EdgeInsets.all(16),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (a['acknowledgedAt'] == null)
-              OutlinedButton(
-                  onPressed: () => _stage('reject'),
-                  child: const Text('REJECT ASSIGNMENT')),
             if (a['state'] == 'ARRIVED_AT_PATIENT')
               FilledButton(
                   onPressed: () => _stage('pickup'),

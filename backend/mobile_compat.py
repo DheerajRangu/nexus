@@ -249,7 +249,6 @@ def mobile_action(body: dict, request: Request):
         from backend.emergency_api import incident_action
 
         translated = {
-            "accept": "accept",
             "arrived": "arrived-patient",
             "pickup": "pickup",
             "complete": "arrived-hospital",
@@ -257,11 +256,7 @@ def mobile_action(body: dict, request: Request):
             "vitals": "assessment",
             "prepare": "hospital-accept",
         }.get(action)
-        if action == "accept":
-            from backend.emergency_api import assignment_action
-
-            assignment_action(body["assignmentId"], "accept", request, body)
-        elif translated:
+        if translated:
             incident_action(body["id"], translated, request, body)
         else:
             raise HTTPException(
@@ -299,7 +294,7 @@ def flutter_snapshot(request: Request):
             "ambulanceId": ambulance["id"],
             "state": incident["status"],
             "receivedAt": a["receivedAt"],
-            "acknowledgedAt": a["acceptedAt"],
+            "acknowledgedAt": a["acknowledgedAt"],
             "pickup": {"coordinates": incident["location"]},
             "requiredEquipment": service.requirements(incident)["equipment"],
             "operationalNotes": incident["description"],
@@ -335,13 +330,8 @@ def flutter_assignment(
     from backend.emergency_api import assignment_action, incident_action
 
     a = service.find(read_city(), "assignments", assignment_id)
-    if action in {"receipt", "acknowledgement", "reject"}:
-        return assignment_action(
-            assignment_id,
-            "accept" if action == "acknowledgement" else action,
-            request,
-            body,
-        )
+    if action in {"receipt", "acknowledgement"}:
+        return assignment_action(assignment_id, action, request, body)
     if action in {"arrival", "pickup", "arrived-hospital"}:
         return incident_action(
             a["incidentId"],
