@@ -50,3 +50,7 @@ driver-app/.flutter-plugins*
 driver-app/build/
 driver-app/.env
 .tools/
+node_modules
+dist
+.env.local
+*.log

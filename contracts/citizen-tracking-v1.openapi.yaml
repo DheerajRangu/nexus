@@ -1,0 +1,468 @@
+openapi: 3.0.3
+info:
+  title: AEGIS Citizen Tracking API
+  version: 1.0.0
+  description: |
+    Citizen / patient surface for one emergency. Spring Boot is the system of
+    record and serves this contract from the shared AEGIS PostgreSQL database.
+    The development adapter in this repository implements the same paths with
+    synthetic data only. It does not assign real ambulances or store missions.
+
+    A tracking session can read and update only its own emergency. Hospital
+    fields appear only after destination confirmation. No clinical record is
+    included.
+  x-aegis-contract-version: "1.0.0"
+servers:
+  - url: /api/v1/citizen
+    description: Same-origin citizen API
+tags:
+  - name: session
+  - name: tracking
+  - name: location
+  - name: contacts
+  - name: places
+  - name: events
+  - name: development
+paths:
+  /health:
+    get:
+      tags: [session]
+      operationId: health
+      security: []
+      responses:
+        "200":
+          description: Process health. No mission data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /sessions:
+    post:
+      tags: [session]
+      operationId: exchangeLinkToken
+      security: []
+      description: |
+        Exchange a high-entropy SMS link token for an HttpOnly session cookie.
+        The raw token is not returned. Tokens are looked up by SHA-256 hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionExchangeRequest"
+      responses:
+        "200":
+          description: Session created.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "406":
+          $ref: "#/components/responses/Error"
+  /tracking:
+    get:
+      tags: [tracking]
+      operationId: getTracking
+      description: Authoritative snapshot for the session emergency only.
+      parameters:
+        - in: query
+          name: emergencyId
+          required: false
+          schema:
+            type: string
+          description: If present and different from the session emergency, the response is 403.
+      responses:
+        "200":
+          description: Current snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackingSnapshot"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /location:
+    post:
+      tags: [location]
+      operationId: confirmOrCorrectLocation
+      description: |
+        Explicitly confirm the incident pickup point. A device GPS fix in
+        deviceObservation is stored separately and does not move the pickup.
+        After an ambulance is assigned, a change alerts the control room and
+        the driver and does not change the hospital destination.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationConfirmationRequest"
+      responses:
+        "200":
+          description: Pickup saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationConfirmationResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /contacts/control-room:
+    post:
+      tags: [contacts]
+      operationId: contactControlRoom
+      responses:
+        "200":
+          description: Public control-room number for this session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+  /contacts/driver:
+    post:
+      tags: [contacts]
+      operationId: contactDriver
+      description: Allowed only after assignment, through a control-room relay.
+      responses:
+        "200":
+          description: Relay number.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /places/search:
+    get:
+      tags: [places]
+      operationId: searchPlaces
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Address suggestions for the open session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceSearchResponse"
+  /places/reverse:
+    get:
+      tags: [places]
+      operationId: reverseGeocode
+      parameters:
+        - in: query
+          name: latitude
+          required: true
+          schema:
+            type: number
+        - in: query
+          name: longitude
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Reverse-geocode suggestion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceSearchResponse"
+  /events:
+    get:
+      tags: [events]
+      operationId: streamEvents
+      parameters:
+        - in: header
+          name: Last-Event-ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: text/event-stream of TrackingEvent frames.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /demo/sessions:
+    post:
+      tags: [development]
+      operationId: startDemoSession
+      description: |
+        DEVELOPMENT ADAPTER ONLY. Creates a synthetic mission and session.
+        Disabled with DEMO_DISABLED when the process is proxying to Spring Boot.
+      responses:
+        "200":
+          description: Synthetic session. Tracking payloads have synthetic=true.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoSessionResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /demo/advance:
+    post:
+      tags: [development]
+      operationId: advanceDemo
+      description: DEVELOPMENT ADAPTER ONLY. Steps the synthetic lifecycle for the session emergency.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step]
+              properties:
+                step:
+                  type: string
+                  enum:
+                    - assign
+                    - telemetry
+                    - at_pickup
+                    - travel
+                    - arrive
+                    - complete
+                    - cancel
+                    - delay
+                    - change_assignment
+                    - change_hospital
+                    - stale_telemetry
+                    - expire_access
+      responses:
+        "200":
+          description: Updated synthetic snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoAdvanceResponse"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    citizenSession:
+      type: apiKey
+      in: cookie
+      name: aegis_cts
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    Health:
+      type: object
+      required: [contractVersion, service, mode, syntheticDataOnly]
+      properties:
+        contractVersion:
+          type: string
+          example: "1.0.0"
+        service:
+          type: string
+        mode:
+          type: string
+          enum: [development, proxy]
+        syntheticDataOnly:
+          type: boolean
+    ApiError:
+      type: object
+      required: [contractVersion, code, message]
+      properties:
+        contractVersion:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    SessionExchangeRequest:
+      type: object
+      required: [linkToken]
+      properties:
+        linkToken:
+          type: string
+    GeoPoint:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+        longitude:
+          type: number
+    TrackingSnapshot:
+      type: object
+      required:
+        - contractVersion
+        - synthetic
+        - emergencyId
+        - missionReference
+        - phase
+        - statusKey
+        - stateVersion
+        - versions
+        - location
+        - permissions
+        - serverTime
+      properties:
+        contractVersion:
+          type: string
+        synthetic:
+          type: boolean
+        emergencyId:
+          type: string
+        missionId:
+          type: string
+          nullable: true
+        missionReference:
+          type: string
+        phase:
+          type: string
+        statusKey:
+          type: string
+        statusExplanation:
+          type: string
+          nullable: true
+        serverTime:
+          type: string
+          format: date-time
+        stateVersion:
+          type: integer
+        assignment:
+          type: object
+          nullable: true
+        telemetry:
+          type: object
+          nullable: true
+        eta:
+          type: object
+          nullable: true
+        hospital:
+          type: object
+          nullable: true
+          description: Omitted until the destination hospital is confirmed.
+    SessionResponse:
+      type: object
+      required: [contractVersion, sessionExpiresAt, tracking]
+      properties:
+        contractVersion:
+          type: string
+        sessionExpiresAt:
+          type: string
+          format: date-time
+        tracking:
+          $ref: "#/components/schemas/TrackingSnapshot"
+    DemoSessionResponse:
+      allOf:
+        - $ref: "#/components/schemas/SessionResponse"
+        - type: object
+          required: [label, synthetic, notice]
+          properties:
+            label:
+              type: string
+              enum: ["DEVELOPMENT DEMO"]
+            synthetic:
+              type: boolean
+              enum: [true]
+            notice:
+              type: string
+    LocationConfirmationRequest:
+      type: object
+      required: [clientSubmissionId, expectedLocationVersion, role, confirmed, pickup, notes]
+      properties:
+        clientSubmissionId:
+          type: string
+        expectedLocationVersion:
+          type: integer
+        role:
+          type: string
+          enum: [WITH_PATIENT, REPORTING_OTHER_LOCATION]
+        confirmed:
+          type: boolean
+        pickup:
+          type: object
+        deviceObservation:
+          type: object
+          nullable: true
+        addressFormatted:
+          type: string
+          nullable: true
+        notes:
+          type: object
+    LocationConfirmationResponse:
+      type: object
+      required: [contractVersion, tracking, alerts]
+      properties:
+        contractVersion:
+          type: string
+        tracking:
+          $ref: "#/components/schemas/TrackingSnapshot"
+        alerts:
+          type: object
+          properties:
+            controlRoom:
+              type: boolean
+            driver:
+              type: boolean
+            hospitalChanged:
+              type: boolean
+              enum: [false]
+    ContactResponse:
+      type: object
+      required: [contractVersion, method, phone, expiresAt, relay]
+      properties:
+        contractVersion:
+          type: string
+        method:
+          type: string
+          enum: [tel]
+        phone:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        relay:
+          type: boolean
+    PlaceSearchResponse:
+      type: object
+      required: [contractVersion, syntheticAddress, results]
+      properties:
+        contractVersion:
+          type: string
+        syntheticAddress:
+          type: boolean
+        results:
+          type: array
+          items:
+            type: object
+    DemoAdvanceResponse:
+      type: object
+      required: [contractVersion, label, tracking]
+      properties:
+        contractVersion:
+          type: string
+        label:
+          type: string
+        tracking:
+          $ref: "#/components/schemas/TrackingSnapshot"
+security:
+  - citizenSession: []
