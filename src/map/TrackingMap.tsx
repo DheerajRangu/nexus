@@ -19,6 +19,7 @@ interface GoogleOverlay {
 }
 
 interface GoogleMarker extends GoogleOverlay {
+  setPosition: (point: {lat:number;lng:number}) => void;
   addListener: (name: string, handler: (event: { latLng?: { lat: () => number; lng: () => number } }) => void) => void;
 }
 
@@ -40,7 +41,7 @@ declare global {
 
 const loaders = new Map<string, Promise<GoogleNamespace>>();
 
-function loadGoogle(apiKey: string): Promise<GoogleNamespace> {
+export function loadGoogle(apiKey: string): Promise<GoogleNamespace> {
   const existing = loaders.get(apiKey);
   if (existing) return existing;
   const pending = new Promise<GoogleNamespace>((resolve, reject) => {
