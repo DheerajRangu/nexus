@@ -104,9 +104,9 @@ function TrackingScreen(props: {
   const [notice, setNotice] = useState<string | null>(null);
   const [contactError, setContactError] = useState(false);
   const ended = snapshot.phase === "COMPLETED" || snapshot.phase === "CANCELLED";
-  // The development adapter has no real location handoff. Keep the demo focused
-  // on tracking instead of requesting coordinates that cannot reach dispatch.
-  const locationWorkflowAvailable = !snapshot.synthetic;
+  // Preview-only adapters omit pickup. The connected demo supports confirmed
+  // pickup corrections even when its route provider is simulated.
+  const locationWorkflowAvailable = !snapshot.synthetic || Boolean(snapshot.location.confirmedPickup);
   const showForm = locationWorkflowAvailable && (snapshot.permissions.canConfirmLocation || correcting);
   const title = translate(props.lang, snapshot.statusKey as keyof Translation);
   const explanation = explanationText(props.lang, snapshot.explanationKey, snapshot.statusExplanation);
@@ -169,6 +169,7 @@ function TrackingScreen(props: {
       ) : null}
       {!ended && !showForm ? (
         <TrackingMap
+          showProviderHint={false}
           lang={props.lang}
           pickup={snapshot.location.confirmedPickup}
           device={null}

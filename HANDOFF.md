@@ -1,5 +1,9 @@
 # AEGIS module handoff
 
+## Current integrated runtime
+
+This repository now runs the shared FastAPI authority with the React command room, guided citizen intake, hospital receiving workspace, and driver view. Begin with [RUN_LOCAL.md](RUN_LOCAL.md); see [INTEGRATION_REPORT.md](INTEGRATION_REPORT.md) for branch provenance and current validation. The section below preserves the original Spring dispatch-module handoff and applies to the retained reference module, not the active shared runtime. Do not launch its independent database as a second mission authority.
+
 ## What was completed
 
 The new `aegis/` folder is independent from `aegis-repo/` (the old cloned Nexus repository was inspected but not edited). The module includes a Spring Boot/PostGIS operational foundation, direct assignment state machine, demo database seed, React command center, Flutter driver integration starter, and contracts.

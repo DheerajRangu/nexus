@@ -1,5 +1,13 @@
 # AEGIS integration report
 
+## Latest update integration (2026-10-06)
+
+Merged `origin/aegis-full-system-integration` through `bc3877a`, including the hospital branch merge, three-panel Hyderabad command room, telemetry interpolation, guided citizen intake, hospital preparation/resource locks, receiving teams, patient board, and scenario controls. The shared authority remains FastAPI. The previously preserved driver receipt-only contract and vision report fix remain active. City and hospital simulation callbacks now acknowledge already-confirmed assignments; operator reassignment selects an eligible replacement before superseding the old assignment. Windows npm test/lint now resolve the correct virtual-environment executable.
+
+Verification for this update: 58 backend tests passed; TypeScript and Vite production build passed (2682 modules transformed). Updated backend health and authenticated Hyderabad seed succeeded: 22 ambulances, 12 hospitals, 18 cameras, 6 incidents. Existing deprecation and Windows temporary-database cleanup warnings remain non-failing. This is local API/runtime verification; the full browser camera-inference flow was not rerun.
+
+The newly discovered `origin/master` (`4dd86aa`) is a separate Java/AI-service architecture and is NOT merged or represented as completed. Its providers, external identity, SMS and Google Routes work require a dedicated migration. No credentials or live external providers were fabricated. The earlier report below describes the prior integration baseline; this section supersedes its hospital-branch and test-count entries.
+
 ## Branch audit and integration
 
 This branch, `aegis-complete-integration-test`, was created from `origin/main` at `5ccb3a8` and fast-forwarded to the prior shared integration foundation `dc1db06`. No existing branch, including `main`, was changed.

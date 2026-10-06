@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source '../../src';
 @import './command-scoped.css';
 @import './vision-scoped.css';
 @import './citizen-scoped.css';

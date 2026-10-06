@@ -34,6 +34,20 @@ def transition(city, incident, status, kind=None, **details):
     if status not in TRANSITIONS.get(incident["status"], set()):
         raise HTTPException(409, f"Cannot move {incident['status']} to {status}")
     incident["status"] = status
+    vehicle_state = {
+        "EN_ROUTE_TO_PATIENT": "EN_ROUTE_TO_PATIENT",
+        "ARRIVED_AT_PATIENT": "AT_SCENE",
+        "PATIENT_ONBOARD": "PATIENT_ONBOARD",
+        "HOSPITAL_SELECTION": "PATIENT_ONBOARD",
+        "HOSPITAL_ASSIGNED": "PATIENT_ONBOARD",
+        "EN_ROUTE_TO_HOSPITAL": "EN_ROUTE_TO_HOSPITAL",
+        "ARRIVED_AT_HOSPITAL": "ARRIVED",
+        "ROAD_BLOCKED": "BLOCKED",
+    }
+    if incident.get("ambulanceId") and status in vehicle_state:
+        find(city, "ambulances", incident["ambulanceId"])["status"] = vehicle_state[
+            status
+        ]
     emit(city, kind or "incident.updated", incident, status=status, **details)
 
 
@@ -49,7 +63,7 @@ def requirements(incident):
             else []
         ),
         "crew": ["ALS"] if critical else ["BLS"],
-        "capacity": 2 if critical else 1,
+        "capacity": max(incident.get("patientCount", 1), 2 if critical else 1),
     }
 
 
@@ -95,6 +109,19 @@ def ambulance_rankings(city, incident):
                 "ambulanceId": ambulance["id"],
                 "eligible": not reasons,
                 "score": round(score),
+                "normalizedScore": max(
+                    0,
+                    min(
+                        100,
+                        round(
+                            100
+                            - min(50, route["etaSeconds"] / 20)
+                            - ambulance["workload"] * 5
+                        ),
+                    ),
+                )
+                if not reasons
+                else 0,
                 "etaSeconds": route["etaSeconds"],
                 "distanceMeters": route["distanceMeters"],
                 "exclusionReasons": reasons,
@@ -109,10 +136,22 @@ def ambulance_rankings(city, incident):
     return sorted(candidates, key=lambda c: (not c["eligible"], c["score"]))
 
 
-def dispatch(city, incident):
+def dispatch(city, incident, ambulance_id=None):
     transition(city, incident, "DISPATCHING")
     incident["dispatchCandidates"] = ambulance_rankings(city, incident)
-    selected = next((c for c in incident["dispatchCandidates"] if c["eligible"]), None)
+    selected = next(
+        (
+            c
+            for c in incident["dispatchCandidates"]
+            if c["eligible"]
+            and (ambulance_id is None or c["ambulanceId"] == ambulance_id)
+        ),
+        None,
+    )
+    if ambulance_id and selected is None:
+        raise HTTPException(
+            409, "Selected unit does not meet current dispatch requirements"
+        )
     if not selected:
         transition(
             city,
@@ -181,6 +220,8 @@ def create_incident(city, body):
         "patientName": body["patientName"],
         "phone": body.get("phone", ""),
         "age": body.get("age", 0),
+        "patientCount": body.get("patientCount", 1),
+        "district": body.get("district", ""),
         "location": body["location"],
         "emergencyType": body["emergencyType"],
         "description": body.get("description", ""),
@@ -201,11 +242,21 @@ def create_incident(city, body):
         "vitals": {},
         "trackingTokenIssued": False,
         "simulation": city["simulation"],
+        "simulationCreatedElapsed": city.get("simulationControl", {}).get("elapsed", 0),
         "locationVersion": 1,
     }
     city["incidents"].append(incident)
     emit(city, "incident.created", incident, location=incident["location"])
-    dispatch(city, incident)
+    if body.get("dispatchImmediately", True):
+        dispatch(city, incident)
+    else:
+        incident["dispatchCandidates"] = ambulance_rankings(city, incident)
+        emit(
+            city,
+            "ai.dispatch.recommended",
+            incident,
+            candidates=incident["dispatchCandidates"],
+        )
     return incident
 
 
@@ -330,6 +381,8 @@ def hospital_rankings(city, incident):
             hospital["icuBeds"] - len(hospital["reservations"]) + (1 if own else 0)
         )
         reasons = []
+        if not hospital.get("acceptancePolicy", {}).get(incident["emergencyType"], True):
+            reasons.append("Hospital acceptance policy excludes this emergency type")
         if hospital["diversion"] or not hospital["erAvailable"]:
             reasons.append("Emergency receiving unavailable")
         if hospital["id"] in incident["rejectedHospitals"]:

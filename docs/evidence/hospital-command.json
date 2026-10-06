@@ -1,0 +1,22 @@
+{
+  "demoCompleted": true,
+  "patientReceived": "UNDER_HOSPITAL_CARE",
+  "reservations": [
+    "ICU-01",
+    "TRAUMA-01",
+    "VENTILATOR-01",
+    "OT-01",
+    "CT-01",
+    "OXYGEN-01",
+    "AIRWAY-01",
+    "SURGICAL_KIT-01"
+  ],
+  "browserErrors": [],
+  "responsiveWidths": [
+    1920,
+    1440,
+    1366,
+    768,
+    390
+  ]
+}

@@ -19,6 +19,8 @@ In another terminal, from root:
 npm run dev
 ```
 
+`npm run dev` now starts or reuses the Python backend as well as Vite. See [command center](COMMAND_CENTER.md) for the Hyderabad simulation.
+
 Open http://localhost:5173/control-room. Other routes: /citizen, /driver, /hospital. Use separate browser profiles for roles, since each browser has one operational cookie. All endpoints proxy to the same backend. No Java/Express/Cloudflare service is needed for this connected runtime.
 
 Environment: DATABASE_URL optional (local SQLite default); AEGIS_DEMO_MODE=true for seed/intake/demo role login; AEGIS_OPERATOR_KEY required outside demo; COOKIE_SECURE=true behind HTTPS; CORS_ORIGINS for trusted web origins; AEGIS_API_ORIGIN overrides Vite proxy destination; VITE_GOOGLE_MAPS_API_KEY in frontend/.env.local enables Google display; AEGIS_CAMERA_SOURCE optionally supplies operator-controlled RTSP/webcam. Browser key must be referrer restricted. POSTGRES_PASSWORD is used by Compose. Never commit .env or tokens. Demo mode must be limited to a trusted environment. Non-demo citizen account/admission and full per-user identity are deployment integrations.

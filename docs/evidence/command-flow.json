@@ -1,0 +1,24 @@
+{
+  "seedCounts": {
+    "ambulances": 22,
+    "hospitals": 12,
+    "cameras": 18,
+    "incidents": 6,
+    "roadEvents": 8,
+    "corridors": 2
+  },
+  "movementVerified": true,
+  "pauseVerified": true,
+  "manualIncident": "INC-6CBB9385CD",
+  "manualDispatchVerified": true,
+  "roadRerouteVerified": true,
+  "cameraEventVerified": true,
+  "capacityDiversionVerified": true,
+  "alertAcknowledgementVerified": true,
+  "searchVerified": true,
+  "cameraDrawerVerified": true,
+  "layersAndPanelsVerified": true,
+  "responsiveVerified": true,
+  "automaticCompletionVerified": true,
+  "browserErrors": []
+}
