@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import cv2
 import numpy as np
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from backend.road_report import road_story, printable_report
 from pydantic import BaseModel
@@ -115,6 +115,9 @@ class EventMemory:
         self.events.append(entry)
         if severity in {'WARNING','CRITICAL'}:
             self.pending.append((event_id,t,segment));self.finalize(event_id,t,segment,partial=True)
+        if getattr(self.session,'camera_id',None):
+            from backend.vision_bridge import publish
+            publish(self.session.camera_id,self.session.id,entry)
         with (self.root/'transcript.jsonl').open('a') as handle:handle.write(json.dumps(entry)+'\n')
     def finalize(self,event_id,t,segment,partial=False):
         event=next(e for e in self.events if e['eventId']==event_id)
@@ -171,7 +174,8 @@ class EventMemory:
         with (self.root/'tracks.jsonl').open('a') as f:f.write(json.dumps({'videoTimestamp':packet['videoTimestamp'],'segment':packet['segment'],'tracks':[{k:v for k,v in tr.items() if k!='history'} for tr in packet['tracks']]})+'\n')
 
 class LiveSession:
-    def __init__(self,video,mode,configured_camera=False):
+    def __init__(self,video,mode,configured_camera=False,camera_id=None):
+        self.camera_id=camera_id
         self.id=uuid.uuid4().hex;self.video=video;self.mode=mode;self.configured_camera=configured_camera;self.source_name='Configured CCTV camera' if configured_camera else video['info']['filename'] if video else 'Browser camera'
         self.frames=LatestFrame();self.output=LatestFrame();self.lock=threading.RLock();self.closed=threading.Event()
         self.status='ready';self.playing=False;self.position=0.;self.generation=0;self.segment=1;self.segments=[]
@@ -293,6 +297,7 @@ class SessionRequest(BaseModel):
     videoId:str|None=None
     mode:str='SMART'
     source:str='browser'
+    cameraId:str|None=None
 
 def check_key(value):
     if os.getenv('AEGIS_API_KEY') and value!=os.getenv('AEGIS_API_KEY'):raise HTTPException(401,'Invalid API key')
@@ -301,7 +306,13 @@ def check_key(value):
 def sources():return {'browserCamera':True,'configuredCamera':bool(os.getenv('AEGIS_CAMERA_SOURCE'))}
 
 @router.post('/api/live/sessions')
-async def create_session(options:SessionRequest):
+async def create_session(options:SessionRequest,request: Request):
+    if options.cameraId:
+        from backend.emergency_api import require
+        from backend.emergency_store import read_city
+        from backend.emergency_service import find
+        require(request,{'CONTROL_ROOM_OPERATOR'})
+        find(read_city(),'cameras',options.cameraId)
     # Middleware dependency for HTTP authentication is attached by main.py.
     if options.source not in {'browser','configured'}:raise HTTPException(422,'Unknown camera source')
     if options.source=='configured' and (options.videoId or not os.getenv('AEGIS_CAMERA_SOURCE')):raise HTTPException(422,'Configured camera is not available')
@@ -311,7 +322,7 @@ async def create_session(options:SessionRequest):
     with sessions_lock:
         active=[s for s in sessions.values() if not s.closed.is_set()]
         if len(active)>=2:raise HTTPException(429,'Two live sessions are already open. Stop an existing session first.')
-        session=LiveSession(video,options.mode,options.source=='configured');sessions[session.id]=session
+        session=LiveSession(video,options.mode,options.source=='configured',options.cameraId);sessions[session.id]=session
         # Inactive session objects expire; saved artifacts remain accessible on disk.
         for key,s in list(sessions.items()):
             if s.closed.is_set():sessions.pop(key,None)

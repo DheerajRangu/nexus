@@ -24,9 +24,20 @@ setup_logging()
 @asynccontextmanager
 async def lifespan(app):
     initialize()
-    yield
+    async def monitor():
+        from backend.emergency_monitor import check_deadlines
+        while True:
+            try:await asyncio.to_thread(check_deadlines)
+            except Exception:logging.getLogger('aegis').exception('emergency_monitor_failed')
+            await asyncio.sleep(2)
+    task=asyncio.create_task(monitor())
+    try:yield
+    finally:
+        task.cancel()
+        try:await task
+        except asyncio.CancelledError:pass
 app = FastAPI(title="AEGIS OmniVision",version="3.0.0",lifespan=lifespan)
-app.add_middleware(CORSMiddleware,allow_origins=os.getenv("CORS_ORIGINS","http://localhost:5173,http://localhost:8080").split(","),allow_methods=["GET","POST"],allow_headers=["Content-Type","X-API-Key"])
+app.add_middleware(CORSMiddleware,allow_origins=os.getenv("CORS_ORIGINS","http://localhost:5173,http://localhost:8080").split(","),allow_credentials=True,allow_methods=["GET","POST","PATCH","DELETE"],allow_headers=["Content-Type","X-API-Key","Authorization","Last-Event-ID","Aegis-Contract-Version","Accept-Language"])
 
 def authorize(x_api_key: str | None = Header(default=None)):
     key = os.getenv("AEGIS_API_KEY")
@@ -185,3 +196,11 @@ async def websocket(ws: WebSocket,video_id: str):
 # Live routes replace batch analysis in the UI; batch endpoints remain compatible for existing exports.
 from backend.live import router as live_router
 app.include_router(live_router,dependencies=[Depends(authorize)])
+
+from backend.emergency_api import router as emergency_router
+from backend.citizen_api import router as citizen_router
+app.include_router(emergency_router)
+app.include_router(citizen_router)
+
+from backend.mobile_compat import router as mobile_router
+app.include_router(mobile_router)
