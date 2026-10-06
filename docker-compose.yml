@@ -1,0 +1,38 @@
+services:
+  database:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegis}
+      POSTGRES_USER: ${POSTGRES_USER:-aegis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aegis-dev-only}
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes: ["aegis-postgres:/var/lib/postgresql/data"]
+  backend:
+    build: ./backend
+    environment:
+      AEGIS_DB_URL: jdbc:postgresql://database:5432/${POSTGRES_DB:-aegis}
+      POSTGRES_USER: ${POSTGRES_USER:-aegis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aegis-dev-only}
+      AEGIS_ALLOWED_ORIGIN: http://localhost:5173
+      AEGIS_OPERATOR_PASSWORD: ${AEGIS_OPERATOR_PASSWORD:-operator-demo-only}
+      AEGIS_DRIVER_PASSWORD: ${AEGIS_DRIVER_PASSWORD:-driver-demo-only}
+      GOOGLE_MAPS_SERVER_KEY: ${GOOGLE_MAPS_SERVER_KEY:-}
+    ports: ["8080:8080"]
+    depends_on:
+      database: { condition: service_healthy }
+  control-room:
+    build:
+      context: ./control-room
+      args:
+        VITE_AEGIS_API_URL: http://localhost:8080
+        # Fixed non-production demo credential only. Never bake a real user secret into a browser bundle.
+        VITE_AEGIS_BASIC_AUTH: operator:operator-demo-only
+    ports: ["5173:80"]
+    depends_on: [backend]
+volumes:
+  aegis-postgres:

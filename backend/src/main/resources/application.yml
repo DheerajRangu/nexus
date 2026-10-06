@@ -1,0 +1,21 @@
+spring:
+  application: { name: aegis-dispatch-api }
+  datasource:
+    url: ${AEGIS_DB_URL:jdbc:postgresql://localhost:5432/aegis}
+    username: ${POSTGRES_USER:aegis}
+    password: ${POSTGRES_PASSWORD:aegis-dev-only}
+  jpa:
+    hibernate: { ddl-auto: validate }
+    open-in-view: false
+  flyway: { enabled: true, locations: classpath:db/migration }
+  jackson: { default-property-inclusion: non_null }
+server: { port: ${PORT:8080} }
+management:
+  endpoints: { web: { exposure: { include: health,info } } }
+aegis:
+  demo: ${AEGIS_DEMO:true}
+  allowed-origin: ${AEGIS_ALLOWED_ORIGIN:http://localhost:5173}
+  telemetry: { stale-after-seconds: ${AEGIS_TELEMETRY_STALE_AFTER_SECONDS:90}, max-past-seconds: ${AEGIS_TELEMETRY_MAX_PAST_SECONDS:600}, max-future-seconds: ${AEGIS_TELEMETRY_MAX_FUTURE_SECONDS:120} }
+  acknowledgement: { deadline-seconds: ${AEGIS_ACK_DEADLINE_SECONDS:120} }
+  routing: { mode: ${AEGIS_ROUTING_MODE:demo}, google-api-key: ${GOOGLE_MAPS_SERVER_KEY:} }
+  auth: { operator-password: ${AEGIS_OPERATOR_PASSWORD:operator-demo-only}, driver-password: ${AEGIS_DRIVER_PASSWORD:driver-demo-only} }

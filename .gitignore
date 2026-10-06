@@ -9,31 +9,24 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
 # testing
 /coverage
-
 # next.js
 /.next/
 /.vinext/
 /out/
-
 # misc
 .DS_Store
 *.pem
-
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
 # env files (can opt-in for committing if needed)
 .env*
-
 # vercel
 .vercel
-
 # typescript
 next-env.d.ts
 /dist/
@@ -44,3 +37,16 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+backend/target/
+control-room/node_modules/
+control-room/dist/
+driver-app/.dart_tool/
+driver-app/.flutter-plugins*
+driver-app/build/
+driver-app/.env
+.tools/
