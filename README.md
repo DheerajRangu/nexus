@@ -22,3 +22,5 @@ Open http://localhost:5173/control-room and enter the command demo. An empty cit
 [Architecture](docs/ARCHITECTURE.md) · [Branch integration](docs/BRANCH_INTEGRATION.md) · [API](docs/API.md) · [Realtime events](docs/REALTIME_EVENTS.md) · [Database](docs/DATABASE.md) · [Vision details](docs/OMNIVISION.md) · [Scenario testing](docs/SCENARIO_TESTING.md)
 
 Routes/signals are explicitly simulated geographic providers. Optional Google Maps is a display provider. Clinical severity requires EMT confirmation; this demo does not contact real emergency services. See architecture/setup for native and deployment integration boundaries.
+
+Hospital receiving center: open `/hospital` for patient preparation, shared resource reservations, team readiness and MIST handover. See [Hospital command guide](docs/HOSPITAL_COMMAND.md).
