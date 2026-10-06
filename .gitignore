@@ -71,4 +71,5 @@ videos/sessions/
 *.tsbuildinfo
 *.db-wal
 *.db-shm
+*.db-journal
 videos/samples/app-scenarios.json
