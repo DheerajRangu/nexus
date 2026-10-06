@@ -13,6 +13,9 @@ services:
       DATABASE_URL: postgresql+psycopg://aegis:${POSTGRES_PASSWORD:-aegis_local}@postgres:5432/aegis
       REDIS_URL: redis://redis:6379/0
       USE_CELERY: "1"
+      AEGIS_DEMO_MODE: ${AEGIS_DEMO_MODE:-true}
+      AEGIS_OPERATOR_KEY: ${AEGIS_OPERATOR_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     volumes: ["./videos:/app/videos", "./models:/app/models"]
     depends_on:
       postgres: {condition: service_healthy}
