@@ -8,6 +8,9 @@ public class ManualIntakeRequestDto {
     private String addressLandmark;
     private String buildingDetails;
     private Boolean provisionalDispatch = false;
+    private Double latitude;
+    private Double longitude;
+    private Double accuracyMeters;
 
     public ManualIntakeRequestDto() {}
 
@@ -25,4 +28,10 @@ public class ManualIntakeRequestDto {
     public void setBuildingDetails(String buildingDetails) { this.buildingDetails = buildingDetails; }
     public Boolean getProvisionalDispatch() { return provisionalDispatch; }
     public void setProvisionalDispatch(Boolean provisionalDispatch) { this.provisionalDispatch = provisionalDispatch; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public Double getAccuracyMeters() { return accuracyMeters; }
+    public void setAccuracyMeters(Double accuracyMeters) { this.accuracyMeters = accuracyMeters; }
 }

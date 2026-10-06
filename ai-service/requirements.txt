@@ -1,4 +1,4 @@
-# Python 3.14 — matches ai-service/Dockerfile (python:3.14-slim)
+# Python 3.11. Must match ai-service/Dockerfile (python:3.11-slim).
 fastapi==0.110.0
 uvicorn==0.28.0
 pydantic==2.6.4

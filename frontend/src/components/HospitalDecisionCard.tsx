@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, BedDouble, CheckCircle2, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Building2, BedDouble, CheckCircle2, Clock } from 'lucide-react';
 import { HospitalRank, EmergencyCase } from '../types';
 
 interface HospitalDecisionCardProps {
@@ -26,7 +26,7 @@ export const HospitalDecisionCard: React.FC<HospitalDecisionCardProps> = ({
   if (!selectedCase) {
     return (
       <div className="glass-panel rounded-2xl p-6 text-center text-slate-400 text-xs italic border border-slate-800">
-        Select an emergency case to compute transparent hospital recommendations.
+        Select an emergency to see hospitals with matching beds and services.
       </div>
     );
   }
@@ -38,10 +38,10 @@ export const HospitalDecisionCard: React.FC<HospitalDecisionCardProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-extrabold text-sm text-white">HOSPITAL DECISION ENGINE</h3>
+            <h3 className="font-extrabold text-sm text-white">Hospitals that may be able to help</h3>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            Transparent Planning Formula: max(Travel ETA, Resource Prep) + Handover Delay
+            Estimated arrival includes travel time and hospital preparation time
           </p>
         </div>
 
@@ -54,7 +54,7 @@ export const HospitalDecisionCard: React.FC<HospitalDecisionCardProps> = ({
               onChange={(e) => setRequiredIcu(e.target.checked)}
               className="rounded text-emerald-500 focus:ring-emerald-500"
             />
-            Require ICU Bed
+            Needs a critical care bed
           </label>
         </div>
       </div>
@@ -75,7 +75,7 @@ export const HospitalDecisionCard: React.FC<HospitalDecisionCardProps> = ({
                 key={h.hospitalId}
                 className={`p-3.5 rounded-xl border transition-all ${
                   isReserved
-                    ? 'bg-emerald-950/40 border-emerald-500 shadow-lg shadow-emerald-500/10'
+                    ? 'bg-emerald-50 border-emerald-300'
                     : isTopRanked
                     ? 'bg-navy-900/90 border-teal-500/50'
                     : 'bg-navy-950/60 border-slate-800'
@@ -88,14 +88,14 @@ export const HospitalDecisionCard: React.FC<HospitalDecisionCardProps> = ({
                       <h4 className="font-extrabold text-sm text-white">{h.name}</h4>
                       {isReserved && (
                         <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> RESERVED
+                          <CheckCircle2 className="w-3 h-3" /> Reserved
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-400 font-mono mt-1">
-                      <span>General Beds: <strong className="text-white">{h.availableBeds}</strong></span>
-                      <span>ICU Beds: <strong className="text-emerald-400">{h.availableIcu}</strong></span>
-                      <span>Specialist: {h.specialistReady ? 'READY' : 'BUSY'}</span>
+                      <span>Beds: <strong className="text-white">{h.availableBeds}</strong></span>
+                      <span>Critical care: <strong className="text-emerald-400">{h.availableIcu}</strong></span>
+                      <span>Specialist: {h.specialistReady ? 'Available' : 'Busy'}</span>
                     </div>
                   </div>
 
@@ -103,10 +103,10 @@ export const HospitalDecisionCard: React.FC<HospitalDecisionCardProps> = ({
                   <div className="flex items-center gap-4">
                     <div className="text-right font-mono">
                       <div className="text-xs text-slate-300">
-                        Travel ETA: <span className="font-bold text-white">{h.travelEtaMins} mins</span>
+                        Drive time: <span className="font-bold text-white">{h.travelEtaMins} min</span>
                       </div>
                       <div className="text-xs text-emerald-400 font-bold flex items-center gap-1 justify-end">
-                        <Clock className="w-3 h-3" /> Total Estimate: {h.totalTransparentEstimateMins} mins
+                        <Clock className="w-3 h-3" /> Arrival after preparation: {h.totalTransparentEstimateMins} min
                       </div>
                     </div>
 

@@ -44,14 +44,17 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: local-pg
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local-pg,demo}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aegis}
       DB_USER: ${POSTGRES_USER:-aegis}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       AEGIS_REDIS_ENABLED: ${AEGIS_REDIS_ENABLED:-false}
+      AEGIS_ROUTING_PROVIDER: ${AEGIS_ROUTING_PROVIDER:-demo}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       AI_SERVICE_URL: http://ai-service:8000/api/v1
-      JWT_SECRET: ${JWT_SECRET:-}
-      WEBHOOK_HMAC_SECRET: ${WEBHOOK_HMAC_SECRET:-}
+      # Local demo defaults only; set strong values in .env for non-demo deployments.
+      JWT_SECRET: ${JWT_SECRET:-aegis-super-secret-controlroom-token-key-32-bytes-min}
+      WEBHOOK_HMAC_SECRET: ${WEBHOOK_HMAC_SECRET:-aegis-super-secret-webhook-hmac-key-32-bytes}
     depends_on:
       postgres:
         condition: service_healthy

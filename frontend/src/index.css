@@ -3,8 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #f4f6f8;
+    color: #1f2937;
   }
 }
 
@@ -12,41 +20,99 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Glassmorphism utility */
+.control-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+@media (min-width: 1024px) {
+  .control-sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    width: 248px;
+    min-height: 100vh;
+    flex: 0 0 248px;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 0;
+  }
+}
+
+/* White operational cards with quiet borders, matching the hospital dashboard reference. */
 .glass-panel {
-  background: rgba(17, 30, 56, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .glass-panel-accent {
-  background: rgba(13, 148, 136, 0.12);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(20, 184, 166, 0.3);
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
 }
 
-/* Leaflet Dark Map Fixes */
+/* Keep text and maps readable against the light dashboard surfaces. */
+.glass-panel .text-white,
+.bg-navy-900 .text-white,
+.bg-navy-950 .text-white {
+  color: #1f2937;
+}
+
+.glass-panel button.text-white,
+.glass-panel .bg-teal-600.text-white,
+.bg-teal-600.text-white,
+.bg-emerald-600.text-white {
+  color: #ffffff;
+}
+
+.glass-panel .text-slate-300,
+.glass-panel .text-slate-400,
+.glass-panel .text-slate-500 {
+  color: #64748b;
+}
+
+.glass-panel .text-teal-300,
+.glass-panel .text-teal-400 {
+  color: #0f766e;
+}
+
+.glass-panel .text-emerald-400,
+.glass-panel .text-emerald-300 {
+  color: #047857;
+}
+
+.glass-panel .text-amber-300,
+.glass-panel .text-amber-400 {
+  color: #92400e;
+}
+
+.glass-panel .text-red-300,
+.glass-panel .text-red-400 {
+  color: #b91c1c;
+}
+
 .leaflet-container {
-  background-color: #0b1329 !important;
+  background-color: #eef2f5 !important;
   font-family: 'Inter', sans-serif !important;
   z-index: 10;
 }
 
-.leaflet-tile {
-  filter: brightness(0.7) invert(1) contrast(1.2) hue-rotate(200deg) !important;
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12) !important;
 }
 
-.leaflet-popup-content-wrapper {
-  background: #111e38 !important;
-  color: #f1f5f9 !important;
-  border: 1px solid rgba(20, 184, 166, 0.4);
-  border-radius: 8px !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+.leaflet-popup-content-wrapper .text-white {
+  color: #1f2937;
 }
 
 .leaflet-popup-tip {
-  background: #111e38 !important;
+  background: #ffffff !important;
 }
 
 /* Scrollbar */
@@ -55,14 +121,14 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b1329;
+  background: #f4f6f8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1b2a4a;
+  background: #cbd5e1;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #0d9488;
+  background: #0f766e;
 }
 
 /* Radar Pulse Animation */

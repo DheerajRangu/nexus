@@ -1,75 +1,120 @@
 package com.aegis.controlroom.service;
 
-import com.aegis.controlroom.model.Roadblock;
-import com.aegis.controlroom.repository.RoadblockRepository;
+import com.aegis.controlroom.model.AuditEvent;
+import com.aegis.controlroom.model.RouteVersion;
+import com.aegis.controlroom.repository.AuditEventRepository;
+import com.aegis.controlroom.repository.RouteVersionRepository;
+import com.aegis.controlroom.routing.GraphRoute;
+import com.aegis.controlroom.routing.RoadGraphProvider;
+import com.aegis.controlroom.routing.RoutingProviderUnavailableException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.*;
 
 @Service
 public class RoutingService {
 
-    private final RoadblockRepository roadblockRepository;
+    private final RoadGraphProvider roadGraphProvider;
+    private final RouteVersionRepository routeVersionRepository;
+    private final AuditEventRepository auditEventRepository;
+    private final WebSocketNotificationService webSocketNotificationService;
 
-    public RoutingService(RoadblockRepository roadblockRepository) {
-        this.roadblockRepository = roadblockRepository;
+    @Value("${aegis.routing.recalc-eta-delta-mins:2.0}")
+    private double recalcEtaDeltaMins;
+
+    public RoutingService(RoadGraphProvider roadGraphProvider,
+                          RouteVersionRepository routeVersionRepository,
+                          AuditEventRepository auditEventRepository,
+                          WebSocketNotificationService webSocketNotificationService) {
+        this.roadGraphProvider = roadGraphProvider;
+        this.routeVersionRepository = routeVersionRepository;
+        this.auditEventRepository = auditEventRepository;
+        this.webSocketNotificationService = webSocketNotificationService;
+    }
+
+    /**
+     * Marker-only map pins are not routing restrictions. Only RoadGraphProvider
+     * may exclude blocked edges. No verified alternative -> alert, no invented route.
+     */
+    @Transactional
+    public Map<String, Object> calculateRoute(
+            String missionId,
+            String leg,
+            double originLat, double originLng,
+            double destLat, double destLng) {
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("leg", leg);
+        result.put("origin", Map.of("lat", originLat, "lng", originLng));
+        result.put("destination", Map.of("lat", destLat, "lng", destLng));
+
+        Optional<GraphRoute> route;
+        try {
+            route = roadGraphProvider.routeAvoidingBlocks(originLat, originLng, destLat, destLng);
+        } catch (RoutingProviderUnavailableException exception) {
+            result.put("routeAvailable", false);
+            result.put("status", "ROUTING_PROVIDER_UNAVAILABLE");
+            result.put("simulated", roadGraphProvider.simulated());
+            result.put("provider", roadGraphProvider.providerName());
+            result.put("operatorAlert", exception.getMessage());
+            webSocketNotificationService.broadcastEvent("/topic/alerts", "routing.provider_unavailable", missionId, result);
+            return result;
+        }
+
+        if (route.isEmpty()) {
+            result.put("routeAvailable", false);
+            result.put("simulated", roadGraphProvider.simulated());
+            result.put("provider", roadGraphProvider.providerName());
+            result.put("operatorAlert", "NO_VERIFIED_ALTERNATIVE: verified roadblocks block the available route options; no route invented");
+            AuditEvent alert = new AuditEvent();
+            alert.setEventId("aud-" + UUID.randomUUID().toString().substring(0, 8));
+            alert.setEventType("ROUTING_NO_ALTERNATIVE");
+            alert.setActorRole("SYSTEM");
+            alert.setAggregateId(missionId != null ? missionId : "unscoped");
+            alert.setAggregateType("MISSION");
+            alert.setDetails("Roadblock with no verified alternative for leg=" + leg);
+            auditEventRepository.save(alert);
+            webSocketNotificationService.broadcastEvent("/topic/alerts", "routing.no_alternative", missionId, result);
+            return result;
+        }
+
+        GraphRoute g = route.get();
+        result.put("routeAvailable", true);
+        result.put("distanceKm", g.distanceKm());
+        result.put("estimatedDurationMins", g.etaMins());
+        result.put("encodedPolyline", g.encodedPolyline());
+        result.put("points", g.points());
+        result.put("provider", g.provider());
+        result.put("simulated", g.simulated());
+        result.put("avoidedRoadblocksCount", g.avoidedRoadblocks());
+
+        if (missionId != null) {
+            Optional<RouteVersion> prev = routeVersionRepository.findFirstByMissionIdOrderByVersionNumberDesc(missionId);
+            int nextVersion = prev.map(r -> r.getVersionNumber() + 1).orElse(1);
+            boolean shouldPersist = prev.isEmpty()
+                    || Math.abs(prev.get().getEstimatedDurationMins() - g.etaMins()) >= recalcEtaDeltaMins;
+            if (shouldPersist) {
+                RouteVersion rv = new RouteVersion();
+                rv.setRouteId("rte-" + UUID.randomUUID().toString().substring(0, 8));
+                rv.setMissionId(missionId);
+                rv.setVersionNumber(nextVersion);
+                rv.setEncodedPolyline(g.encodedPolyline());
+                rv.setDistanceKm(g.distanceKm());
+                rv.setEstimatedDurationMins(g.etaMins());
+                rv.setAvoidedRoadblocksCount(g.avoidedRoadblocks());
+                routeVersionRepository.save(rv);
+                result.put("routeVersion", nextVersion);
+            } else {
+                result.put("routeVersion", prev.get().getVersionNumber());
+                result.put("recalcSkipped", true);
+            }
+        }
+        return result;
     }
 
     public Map<String, Object> calculateRoute(double originLat, double originLng, double destLat, double destLng) {
-        List<Roadblock> activeRoadblocks = roadblockRepository.findByExpiresAtAfterAndVerifiedTrue(Instant.now());
-
-        boolean containsRoadblock = false;
-        String blockedSource = null;
-
-        for (Roadblock rb : activeRoadblocks) {
-            double distToOrigin = calculateDistanceKm(rb.getLatitude(), rb.getLongitude(), originLat, originLng);
-            double distToDest = calculateDistanceKm(rb.getLatitude(), rb.getLongitude(), destLat, destLng);
-
-            // Check if roadblock falls within route path corridor
-            if (distToOrigin < 0.5 || distToDest < 0.5 || isPointNearLine(rb.getLatitude(), rb.getLongitude(), originLat, originLng, destLat, destLng)) {
-                containsRoadblock = true;
-                blockedSource = rb.getSource();
-                break;
-            }
-        }
-
-        double baseDistKm = calculateDistanceKm(originLat, originLng, destLat, destLng) * 1.25; // City road curvature factor
-        double baseEtaMins = (baseDistKm / 35.0) * 60.0;
-
-        Map<String, Object> routeResult = new HashMap<>();
-        routeResult.put("origin", Map.of("lat", originLat, "lng", originLng));
-        routeResult.put("destination", Map.of("lat", destLat, "lng", destLng));
-        routeResult.put("distanceKm", Math.round(baseDistKm * 100.0) / 100.0);
-        routeResult.put("estimatedDurationMins", Math.round(baseEtaMins * 10.0) / 10.0);
-        routeResult.put("routeVersion", 1);
-
-        if (containsRoadblock) {
-            routeResult.put("hasRoadblockObstruction", true);
-            routeResult.put("roadblockAlert", "ACTIVE ROADBLOCK ENCOUNTERED: " + blockedSource + ". Rerouting via alternate arterial corridor.");
-            routeResult.put("detourDistanceKm", Math.round((baseDistKm + 1.8) * 100.0) / 100.0);
-            routeResult.put("detourDurationMins", Math.round((baseEtaMins + 4.5) * 10.0) / 10.0);
-        } else {
-            routeResult.put("hasRoadblockObstruction", false);
-        }
-
-        return routeResult;
-    }
-
-    private double calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371;
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
-
-    private boolean isPointNearLine(double px, double py, double x1, double y1, double x2, double y2) {
-        double dist = Math.abs((y2 - y1) * px - (x2 - x1) * py + x2 * y1 - y2 * x1) /
-                Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-        return dist < 0.005; // ~500m proximity
+        return calculateRoute(null, "GENERIC", originLat, originLng, destLat, destLng);
     }
 }

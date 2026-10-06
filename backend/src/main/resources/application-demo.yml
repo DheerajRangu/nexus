@@ -1,0 +1,6 @@
+aegis:
+  demo:
+    enabled: true
+    # Live demo pacing; tests override to 0 via @TestPropertySource
+    step-delay-ms: ${AEGIS_DEMO_STEP_DELAY_MS:800}
+    rng-seed: 42

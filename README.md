@@ -58,56 +58,100 @@ Docker is optional. Without it, the backend uses the Spring profile `local-pg` (
 ```sql
 CREATE ROLE aegis LOGIN PASSWORD 'set-this-locally';
 CREATE DATABASE aegis OWNER aegis;
+CREATE ROLE aegis_app LOGIN PASSWORD 'set-this-locally';
+GRANT CONNECT ON DATABASE aegis TO aegis_app;
 \c aegis
 CREATE EXTENSION IF NOT EXISTS postgis;
+GRANT USAGE ON SCHEMA public TO aegis_app;
 ```
 
-5. Copy `.env.example` to `.env` and set `DB_URL=jdbc:postgresql://localhost:5432/aegis`, `DB_USER=aegis`, `DB_PASSWORD`, `POSTGRES_PASSWORD`, `JWT_SECRET`, and `WEBHOOK_HMAC_SECRET`.
+5. Copy `.env.example` to `.env` and set `DB_URL=jdbc:postgresql://localhost:5432/aegis`, `DB_USER=aegis_app`, `DB_PASSWORD`, `POSTGRES_PASSWORD`, `JWT_SECRET`, and `WEBHOOK_HMAC_SECRET`. The application connects as `aegis_app`, not as the postgres superuser.
+
+To use real, traffic-aware routes, enable **Routes API** and billing in Google Cloud, restrict a server-side API key to Routes API, then set `GOOGLE_MAPS_API_KEY` in the gitignored `.env` and change `AEGIS_ROUTING_PROVIDER=google`. The backend calls Google; the key is not sent to the browser. If the key is absent or the provider is left as `demo`, the app continues using the labelled simulated route provider.
 6. Confirm the database answers:
 
 ```powershell
 $env:PGPASSWORD = "<DB_PASSWORD from .env>"
-& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -h localhost -U aegis -d aegis -c "SELECT version(); SELECT PostGIS_Version();"
+& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -h localhost -U aegis_app -d aegis -c "SELECT current_user; SELECT postgis_full_version();"
 ```
 
-## Quick start (Windows)
+## How to start (Windows live demo)
 
-Python for the AI service is **3.11**, matching `ai-service/Dockerfile` (`python:3.11-slim`). On this machine use `py -3.11` if the `python` command is the Microsoft Store alias.
+Python for the AI service is **3.11** (`ai-service/Dockerfile` uses `python:3.11-slim`). Prefer `ai-service\venv` after `pip install -r requirements.txt`.
 
-## ⚡ Quick Start & Local Execution (Windows Friendly)
+Routing, SMS, 108 webhooks, hospital census, and ML metrics are **SIMULATED / pipeline demo only**.
 
-### Option A: Local Frontend Execution (Node.js)
+### 1) Database check (`aegis` = live demo DB)
+
 ```powershell
-# 1. Change to frontend directory
-cd frontend
-
-# 2. Install dependencies
-npm install
-
-# 3. Start development server
-npm run dev
+Get-Content .env | ForEach-Object { if ($_ -match '^\s*([^#][^=]+)=(.*)$' -and -not [string]::IsNullOrWhiteSpace($Matches[2])) { Set-Item -Path "Env:$($Matches[1].Trim())" -Value $Matches[2] } }
+$env:PGPASSWORD = $env:DB_PASSWORD
+& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -h localhost -U aegis_app -d aegis -c "SELECT current_user, current_database(); SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1;"
 ```
-Open `http://localhost:5173` in your browser. The application includes a full offline simulation adapter with mock data when backend services are not running.
 
-### Option B: Python FastAPI AI Service
+### 2) AI service
+
 ```powershell
-# 1. Change to ai-service directory
 cd ai-service
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Train ML Model & generate seed stats
-python app/data/seed_generator.py
-
-# 4. Start FastAPI server
-uvicorn main:app --reload --port 8000
+.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
+# prove: GET http://127.0.0.1:8000/health
 ```
-Open `http://localhost:8000/docs` for interactive Swagger UI.
 
-### Option C: Docker Compose Full Stack Infrastructure
+### 3) Backend (`local-pg,demo`)
+
 ```powershell
-# Launch Postgres, Redis, Spring Boot, FastAPI, and Vite Frontend simultaneously
+Get-Content .env | ForEach-Object { if ($_ -match '^\s*([^#][^=]+)=(.*)$' -and -not [string]::IsNullOrWhiteSpace($Matches[2])) { Set-Item -Path "Env:$($Matches[1].Trim())" -Value $Matches[2] } }
+$env:SPRING_PROFILES_ACTIVE = "local-pg,demo"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"
+$env:Path = "$env:JAVA_HOME\bin;" + $env:Path
+cd backend
+.\mvnw.cmd spring-boot:run
+# prove: GET http://localhost:8080/api/v1/health  (Flyway rank + seedUsers)
+```
+
+### 4) Frontend (optional for E0)
+
+```powershell
+cd frontend
+npm install
+npm run dev
+# http://localhost:5173
+```
+
+### 5) Demo script
+
+```powershell
+cd <repo-root>
+.\scripts\demo.ps1
+# expect missionState=COMPLETED reservationStatus=CONSUMED
+```
+
+### DEMO ONLY users
+
+Applied at runtime by `DemoUserSeeder` when Spring profile `demo` is active (not treated as production credentials from Flyway). Password for all: `password`.
+
+| Username | Role | Scope |
+|---|---|---|
+| supervisor1 | ROLE_SUPERVISOR | city-wide |
+| operator1 | ROLE_OPERATOR | city-wide |
+| driver1 | ROLE_DRIVER | AMB-108-NORTH-01 |
+| driver2 | ROLE_DRIVER | AMB-108-CENTRAL-02 |
+| hospadmin1 | ROLE_HOSPITAL_STAFF | HOSP-CITY-GENERAL-01 |
+
+## Other local options
+
+### Frontend only
+```powershell
+cd frontend ; npm install ; npm run dev
+```
+
+### AI only
+```powershell
+cd ai-service ; .\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+### Docker Compose (optional)
+```powershell
 docker-compose up --build
 ```
 

@@ -22,6 +22,9 @@ public class Hospital {
     @Column(name = "available_beds", nullable = false)
     private Integer availableBeds;
 
+    @Column(name = "reserved_beds", nullable = false)
+    private Integer reservedBeds = 0;
+
     @Column(name = "available_icu", nullable = false)
     private Integer availableIcu;
 
@@ -49,6 +52,8 @@ public class Hospital {
     public void setLongitude(Double longitude) { this.longitude = longitude; }
     public Integer getAvailableBeds() { return availableBeds; }
     public void setAvailableBeds(Integer availableBeds) { this.availableBeds = availableBeds; }
+    public Integer getReservedBeds() { return reservedBeds; }
+    public void setReservedBeds(Integer reservedBeds) { this.reservedBeds = reservedBeds; }
     public Integer getAvailableIcu() { return availableIcu; }
     public void setAvailableIcu(Integer availableIcu) { this.availableIcu = availableIcu; }
     public Boolean getHasTraumaCenter() { return hasTraumaCenter; }

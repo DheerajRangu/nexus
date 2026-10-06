@@ -51,7 +51,7 @@ def forecast_demand(sectorId: str = "SECTOR-CENTRAL-01", lookaheadHours: int = 1
 
 @app.post("/api/v1/ai/explain/recommendations", response_model=ExplanationResponse)
 def explain_recommendations(req: ExplanationRequest):
-    dict_candidates = [c.dict() for c in req.candidates]
+    dict_candidates = [c.model_dump() for c in req.candidates]
     res = explanation_engine.generate_explanations(req.emergencyId, dict_candidates)
     return res
 

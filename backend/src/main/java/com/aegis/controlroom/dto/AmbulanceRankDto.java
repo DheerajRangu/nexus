@@ -12,6 +12,8 @@ public class AmbulanceRankDto {
     private Double score;
     private List<String> reasons;
     private String driverId;
+    private String routingProvider;
+    private boolean simulated;
 
     public AmbulanceRankDto() {}
 
@@ -33,4 +35,8 @@ public class AmbulanceRankDto {
     public void setReasons(List<String> reasons) { this.reasons = reasons; }
     public String getDriverId() { return driverId; }
     public void setDriverId(String driverId) { this.driverId = driverId; }
+    public String getRoutingProvider() { return routingProvider; }
+    public void setRoutingProvider(String routingProvider) { this.routingProvider = routingProvider; }
+    public boolean isSimulated() { return simulated; }
+    public void setSimulated(boolean simulated) { this.simulated = simulated; }
 }

@@ -5,6 +5,7 @@ import com.aegis.controlroom.dto.HospitalReservationRequestDto;
 import com.aegis.controlroom.model.Hospital;
 import com.aegis.controlroom.model.Reservation;
 import com.aegis.controlroom.repository.HospitalRepository;
+import com.aegis.controlroom.security.ScopeGuard;
 import com.aegis.controlroom.service.HospitalDecisionEngineService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,10 +19,19 @@ public class HospitalController {
 
     private final HospitalRepository hospitalRepository;
     private final HospitalDecisionEngineService hospitalDecisionEngineService;
+    private final ScopeGuard scopeGuard;
 
-    public HospitalController(HospitalRepository hospitalRepository, HospitalDecisionEngineService hospitalDecisionEngineService) {
+    public HospitalController(HospitalRepository hospitalRepository,
+                              HospitalDecisionEngineService hospitalDecisionEngineService,
+                              ScopeGuard scopeGuard) {
         this.hospitalRepository = hospitalRepository;
         this.hospitalDecisionEngineService = hospitalDecisionEngineService;
+        this.scopeGuard = scopeGuard;
+    }
+
+    @GetMapping("/scope/{hospitalId}")
+    public ResponseEntity<Hospital> readScoped(@PathVariable String hospitalId) {
+        return ResponseEntity.ok(scopeGuard.readHospital(hospitalId));
     }
 
     @GetMapping

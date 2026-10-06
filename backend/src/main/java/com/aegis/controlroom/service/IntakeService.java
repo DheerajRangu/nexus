@@ -9,11 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.*;
 
@@ -30,6 +25,9 @@ public class IntakeService {
     private final SmsOutboxService smsOutboxService;
     private final AIServiceClient aiServiceClient;
     private final WebSocketNotificationService webSocketNotificationService;
+    private final OutboxService outboxService;
+    private final DispatchEngineService dispatchEngineService;
+    private final boolean autoDispatchEnabled;
 
     public IntakeService(EmergencyCaseRepository emergencyCaseRepository,
                          IncidentLocationRepository incidentLocationRepository,
@@ -37,7 +35,10 @@ public class IntakeService {
                          CitizenTrackingService citizenTrackingService,
                          SmsOutboxService smsOutboxService,
                          AIServiceClient aiServiceClient,
-                         WebSocketNotificationService webSocketNotificationService) {
+                         WebSocketNotificationService webSocketNotificationService,
+                         OutboxService outboxService,
+                         DispatchEngineService dispatchEngineService,
+                         @Value("${aegis.dispatch.auto-enabled:true}") boolean autoDispatchEnabled) {
         this.emergencyCaseRepository = emergencyCaseRepository;
         this.incidentLocationRepository = incidentLocationRepository;
         this.webhookIdempotencyRepository = webhookIdempotencyRepository;
@@ -45,21 +46,13 @@ public class IntakeService {
         this.smsOutboxService = smsOutboxService;
         this.aiServiceClient = aiServiceClient;
         this.webSocketNotificationService = webSocketNotificationService;
+        this.outboxService = outboxService;
+        this.dispatchEngineService = dispatchEngineService;
+        this.autoDispatchEnabled = autoDispatchEnabled;
     }
 
-    public boolean verifySignature(String rawBody, String signature) {
-        if (signature == null || signature.isEmpty()) return true; // Permissive for demo
-        try {
-            Mac hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            hmac.init(secretKey);
-            byte[] hash = hmac.doFinal(rawBody.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) sb.append(String.format("%02x", b));
-            return sb.toString().equalsIgnoreCase(signature.replace("sha256=", ""));
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            return false;
-        }
+    public boolean verifySignature(String timestamp, String rawBody, String signature) {
+        return com.aegis.controlroom.security.WebhookSignature.matches(webhookSecret, timestamp, rawBody, signature);
     }
 
     @Transactional
@@ -90,10 +83,10 @@ public class IntakeService {
         IncidentLocation loc = new IncidentLocation();
         loc.setLocationId("loc-" + UUID.randomUUID().toString().substring(0, 8));
         loc.setEmergencyId(emergencyId);
-        loc.setCallerLat(dto.getCallerLat() != null ? dto.getCallerLat() : 12.9716);
-        loc.setCallerLng(dto.getCallerLng() != null ? dto.getCallerLng() : 77.5946);
-        loc.setCallerAccuracyMeters(dto.getAccuracyMeters() != null ? dto.getAccuracyMeters() : 150.0);
-        loc.setLocationSource("CALLER_CELL_TRIANGULATION");
+        loc.setCallerLat(dto.getCallerLat());
+        loc.setCallerLng(dto.getCallerLng());
+        loc.setCallerAccuracyMeters(dto.getAccuracyMeters());
+        loc.setLocationSource(dto.getCallerLat() != null && dto.getCallerLng() != null ? "CALLER_SHARED" : "NOT_PROVIDED");
         incidentLocationRepository.save(loc);
 
         // Save Idempotency
@@ -105,8 +98,15 @@ public class IntakeService {
         TrackingSession session = citizenTrackingService.createSession(emergencyId);
 
         // Send SMS outbox link
-        String trackingUrl = "http://localhost:5173/track/" + session.getTrackingToken();
+        String trackingUrl = "http://localhost:5173/track/" + session.getPresentedToken();
         smsOutboxService.sendSms(dto.getCallbackNumber(), "AEGIS Emergency Link: Confirm your exact location & track response: " + trackingUrl);
+
+        int version = savedCase.getEntityVersion() != null ? savedCase.getEntityVersion() : 1;
+        outboxService.enqueue("case.created", emergencyId, version, Map.of(
+                "emergencyId", emergencyId,
+                "aiStatus", nlp.getOrDefault("aiStatus", "UNKNOWN"),
+                "chiefComplaint", savedCase.getChiefComplaint()
+        ));
 
         webSocketNotificationService.broadcastEvent("/topic/cases", "CASE_CREATED", emergencyId, savedCase);
 
@@ -124,26 +124,33 @@ public class IntakeService {
         eCase.setTriagePriority(dto.getPriority() != null ? dto.getPriority() : "P3_STANDARD");
         eCase.setRawOperatorNotes(dto.getNotes());
         eCase.setProvisionalDispatch(Boolean.TRUE.equals(dto.getProvisionalDispatch()));
-        eCase.setLocationConfirmed(!Boolean.TRUE.equals(dto.getProvisionalDispatch()));
-        eCase.setCurrentState(dto.getProvisionalDispatch() ? "LOCATION_CONFIRMED" : "INTAKE_CREATED");
+        boolean coordinatesProvided = dto.getLatitude() != null && dto.getLongitude() != null;
+        eCase.setLocationConfirmed(coordinatesProvided && !Boolean.TRUE.equals(dto.getProvisionalDispatch()));
+        eCase.setCurrentState(eCase.getLocationConfirmed() ? "LOCATION_CONFIRMED" : "INTAKE_CREATED");
 
         EmergencyCase savedCase = emergencyCaseRepository.save(eCase);
 
         IncidentLocation loc = new IncidentLocation();
         loc.setLocationId("loc-" + UUID.randomUUID().toString().substring(0, 8));
         loc.setEmergencyId(emergencyId);
-        loc.setConfirmedLat(12.9716); // Default downtown MG Road
-        loc.setConfirmedLng(77.5946);
-        loc.setConfirmedAddress(dto.getAddressLandmark() != null ? dto.getAddressLandmark() : "City Center Plaza");
+        loc.setCallerLat(dto.getLatitude());
+        loc.setCallerLng(dto.getLongitude());
+        loc.setCallerAccuracyMeters(dto.getAccuracyMeters());
+        if (eCase.getLocationConfirmed()) {
+            loc.setConfirmedLat(dto.getLatitude());
+            loc.setConfirmedLng(dto.getLongitude());
+            loc.setConfirmedAddress(dto.getAddressLandmark());
+        }
         loc.setBuildingFloorNotes(dto.getBuildingDetails());
-        loc.setLocationSource("OPERATOR_MANUAL_ENTRY");
+        loc.setLocationSource(coordinatesProvided ? "OPERATOR_PIN" : "NOT_PROVIDED");
         incidentLocationRepository.save(loc);
 
         TrackingSession session = citizenTrackingService.createSession(emergencyId);
-        String trackingUrl = "http://localhost:5173/track/" + session.getTrackingToken();
+        String trackingUrl = "http://localhost:5173/track/" + session.getPresentedToken();
         smsOutboxService.sendSms(dto.getCallbackNumber(), "AEGIS Emergency Link: Track assigned response unit: " + trackingUrl);
 
         webSocketNotificationService.broadcastEvent("/topic/cases", "CASE_CREATED", emergencyId, savedCase);
+        offerAutomaticallyWhenLocationIsReady(savedCase);
         return savedCase;
     }
 
@@ -177,6 +184,13 @@ public class IntakeService {
         EmergencyCase updated = emergencyCaseRepository.save(eCase);
 
         webSocketNotificationService.broadcastEvent("/topic/cases", "LOCATION_CONFIRMED", emergencyId, updated);
+        offerAutomaticallyWhenLocationIsReady(updated);
         return updated;
+    }
+
+    private void offerAutomaticallyWhenLocationIsReady(EmergencyCase emergencyCase) {
+        if (autoDispatchEnabled && Boolean.TRUE.equals(emergencyCase.getLocationConfirmed())) {
+            dispatchEngineService.autoDispatchTop(emergencyCase.getEmergencyId());
+        }
     }
 }

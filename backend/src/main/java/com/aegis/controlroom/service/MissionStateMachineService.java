@@ -1,5 +1,6 @@
 package com.aegis.controlroom.service;
 
+import com.aegis.controlroom.api.DomainConflictException;
 import com.aegis.controlroom.model.Ambulance;
 import com.aegis.controlroom.model.EmergencyCase;
 import com.aegis.controlroom.model.Mission;
@@ -10,23 +11,42 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class MissionStateMachineService {
+
+    private static final Map<String, Set<String>> ALLOWED = Map.ofEntries(
+            Map.entry("CREATED", Set.of("DISPATCHING", "CANCELLED", "ESCALATED")),
+            Map.entry("DISPATCHING", Set.of("ASSIGNED", "CANCELLED", "ESCALATED")),
+            Map.entry("ASSIGNED", Set.of("EN_ROUTE_TO_PATIENT")),
+            Map.entry("EN_ROUTE_TO_PATIENT", Set.of("ON_SCENE")),
+            Map.entry("ON_SCENE", Set.of("TRANSPORTING")),
+            Map.entry("TRANSPORTING", Set.of("AT_HOSPITAL")),
+            Map.entry("AT_HOSPITAL", Set.of("HANDED_OVER")),
+            Map.entry("HANDED_OVER", Set.of("COMPLETED"))
+    );
 
     private final MissionRepository missionRepository;
     private final EmergencyCaseRepository emergencyCaseRepository;
     private final AmbulanceRepository ambulanceRepository;
     private final WebSocketNotificationService webSocketNotificationService;
+    private final OutboxService outboxService;
+    private final HospitalDecisionEngineService hospitalDecisionEngineService;
 
     public MissionStateMachineService(MissionRepository missionRepository,
                                        EmergencyCaseRepository emergencyCaseRepository,
                                        AmbulanceRepository ambulanceRepository,
-                                       WebSocketNotificationService webSocketNotificationService) {
+                                       WebSocketNotificationService webSocketNotificationService,
+                                       OutboxService outboxService,
+                                       HospitalDecisionEngineService hospitalDecisionEngineService) {
         this.missionRepository = missionRepository;
         this.emergencyCaseRepository = emergencyCaseRepository;
         this.ambulanceRepository = ambulanceRepository;
         this.webSocketNotificationService = webSocketNotificationService;
+        this.outboxService = outboxService;
+        this.hospitalDecisionEngineService = hospitalDecisionEngineService;
     }
 
     @Transactional
@@ -35,18 +55,21 @@ public class MissionStateMachineService {
                 .orElseThrow(() -> new IllegalArgumentException("Mission not found: " + missionId));
 
         String currentState = mission.getCurrentState();
-        validateTransition(currentState, nextState);
+        validateTransition(currentState, nextState, mission);
 
         mission.setCurrentState(nextState);
-        if ("HANDOVER_COMPLETE".equals(nextState) || "CLOSED".equals(nextState)) {
-            mission.setCompletedAt(Instant.now());
-
-            // Release ambulance back to available pool
-            Ambulance amb = ambulanceRepository.findById(mission.getAmbulanceId()).orElse(null);
-            if (amb != null) {
-                amb.setIsAvailable(true);
-                amb.setStatus("IDLE");
-                ambulanceRepository.save(amb);
+        if ("HANDED_OVER".equals(nextState) || "COMPLETED".equals(nextState)) {
+            if ("HANDED_OVER".equals(nextState)) {
+                hospitalDecisionEngineService.consumeReservationForEmergency(mission.getEmergencyId());
+            }
+            if ("COMPLETED".equals(nextState)) {
+                mission.setCompletedAt(Instant.now());
+                Ambulance amb = ambulanceRepository.findById(mission.getAmbulanceId()).orElse(null);
+                if (amb != null) {
+                    amb.setIsAvailable(true);
+                    amb.setStatus("IDLE");
+                    ambulanceRepository.save(amb);
+                }
             }
         }
 
@@ -59,24 +82,42 @@ public class MissionStateMachineService {
             emergencyCaseRepository.save(eCase);
         }
 
-        webSocketNotificationService.broadcastEvent("/topic/missions", "MISSION_STATE_CHANGED", missionId, savedMission);
+        int version = savedMission.getEntityVersion() != null ? savedMission.getEntityVersion() : 1;
+        String eventType = switch (nextState) {
+            case "EN_ROUTE_TO_PATIENT" -> "mission.en_route";
+            case "ON_SCENE" -> "mission.on_scene";
+            case "TRANSPORTING" -> "mission.transporting";
+            case "AT_HOSPITAL" -> "mission.at_hospital";
+            case "HANDED_OVER" -> "mission.handed_over";
+            case "COMPLETED" -> "mission.completed";
+            case "CANCELLED" -> "mission.cancelled";
+            case "ESCALATED" -> "mission.escalated";
+            case "ASSIGNED" -> "mission.assigned";
+            case "DISPATCHING" -> "mission.dispatching";
+            default -> "mission." + nextState.toLowerCase();
+        };
+        outboxService.enqueue(eventType, missionId, version, savedMission);
+
+        webSocketNotificationService.broadcastEvent("/topic/missions", eventType, missionId, savedMission);
         webSocketNotificationService.broadcastEvent("/topic/cases", "CASE_STATE_CHANGED", mission.getEmergencyId(), eCase);
 
         return savedMission;
     }
 
-    private void validateTransition(String current, String next) {
-        // Enforce strict mission state machine rules
-        if ("DISPATCHED".equals(current) && "EN_ROUTE_PATIENT".equals(next)) return;
-        if ("EN_ROUTE_PATIENT".equals(current) && "PATIENT_PICKED_UP".equals(next)) return;
-        if ("PATIENT_PICKED_UP".equals(current) && "EN_ROUTE_HOSPITAL".equals(next)) return;
-        if ("EN_ROUTE_HOSPITAL".equals(current) && "ARRIVED_HOSPITAL".equals(next)) return;
-        if ("ARRIVED_HOSPITAL".equals(current) && "HANDOVER_COMPLETE".equals(next)) return;
-        if ("HANDOVER_COMPLETE".equals(current) && "CLOSED".equals(next)) return;
-
-        // Allow direct closing by supervisor if required
-        if ("CLOSED".equals(next)) return;
-
-        throw new IllegalStateException(String.format("Invalid state transition from %s to %s", current, next));
+    private void validateTransition(String current, String next, Mission mission) {
+        Set<String> allowed = ALLOWED.get(current);
+        if (allowed == null || !allowed.contains(next)) {
+            throw new DomainConflictException(String.format("Invalid state transition from %s to %s", current, next));
+        }
+        if ("TRANSPORTING".equals(next)) {
+            EmergencyCase eCase = emergencyCaseRepository.findById(mission.getEmergencyId()).orElse(null);
+            boolean reserved = eCase != null && eCase.getReservedHospitalId() != null
+                    && !eCase.getReservedHospitalId().isBlank();
+            boolean hospitalSet = mission.getAssignedHospitalId() != null
+                    && !mission.getAssignedHospitalId().isBlank();
+            if (!reserved && !hospitalSet) {
+                throw new DomainConflictException("Destination must be reserved or operator-confirmed before TRANSPORTING");
+            }
+        }
     }
 }

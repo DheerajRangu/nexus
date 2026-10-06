@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Ambulance, Hospital, EmergencyCase, Roadblock, GreenCorridorSignal } from '../types';
+import { Ambulance, Hospital, EmergencyCase, IncidentLocation, MissionRoute, Roadblock, GreenCorridorSignal } from '../types';
 
 interface LiveMapProps {
   ambulances: Ambulance[];
   hospitals: Hospital[];
   cases: EmergencyCase[];
+  locations: IncidentLocation[];
+  routes: MissionRoute[];
   roadblocks: Roadblock[];
   signals: GreenCorridorSignal[];
   selectedCaseId?: string;
@@ -90,12 +92,15 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   ambulances,
   hospitals,
   cases,
+  locations,
+  routes,
   roadblocks,
   signals,
   selectedCaseId,
   onSelectCase
 }) => {
-  const defaultCenter: [number, number] = [12.9716, 77.5946]; // Bangalore City Center
+  const positioned = ambulances.find(a => Number.isFinite(a.latitude) && Number.isFinite(a.longitude));
+  const defaultCenter: [number, number] = positioned ? [positioned.latitude, positioned.longitude] : [12.9716, 77.5946];
 
   return (
     <div className="relative w-full h-[520px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
@@ -107,7 +112,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       >
         <MapViewRecenter center={defaultCenter} />
 
-        {/* Dark Mode Map Tiles */}
+        {/* Standard light map tiles */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -160,9 +165,10 @@ export const LiveMap: React.FC<LiveMapProps> = ({
 
         {/* Emergency Cases */}
         {cases.map((c) => {
-          // MG Road default lat/lng
-          const lat = 12.9716;
-          const lng = 77.5946;
+          const location = locations.find(item => item.emergencyId === c.emergencyId);
+          const lat = location?.confirmedLat ?? location?.callerLat;
+          const lng = location?.confirmedLng ?? location?.callerLng;
+          if (lat == null || lng == null) return null;
           return (
             <React.Fragment key={c.emergencyId}>
               <Marker
@@ -197,6 +203,25 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             </React.Fragment>
           );
         })}
+
+        {/* Refreshed route previews for active missions. Demo lines are dashed and labelled. */}
+        {routes.filter(route => route.routeAvailable && route.points && route.points.length > 1).map(route => (
+          <Polyline
+            key={`${route.missionId}-${route.routeVersion ?? 'current'}`}
+            positions={route.points!.map(point => [point.latitude, point.longitude] as [number, number])}
+            pathOptions={{ color: '#0f766e', weight: 4, opacity: 0.85, dashArray: route.simulated ? '8 8' : undefined }}
+          >
+            <Popup>
+              <div className="space-y-1 text-xs text-slate-700">
+                <strong>{route.leg === 'TO_PATIENT' ? 'To patient' : 'To hospital'}</strong>
+                <p>{route.destinationLabel}</p>
+                <p>Estimated travel: {route.estimatedDurationMins?.toFixed(1) ?? '—'} min</p>
+                <p>{route.simulated ? 'Simulated route preview' : 'Traffic-aware route'}</p>
+                {route.locationUpdatedAt && <p>Ambulance location updated {new Date(route.locationUpdatedAt).toLocaleTimeString()}</p>}
+              </div>
+            </Popup>
+          </Polyline>
+        ))}
 
         {/* Roadblocks */}
         {roadblocks.map((rb) => (
@@ -237,6 +262,14 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       </MapContainer>
 
       {/* Map Overlay Legend */}
+      {routes.length > 0 && <div className="absolute right-3 top-3 z-[200] max-w-xs rounded-lg border border-teal-100 bg-white/95 p-3 text-xs shadow-md">
+        {routes.map(route => <p key={route.missionId} className="mb-1 last:mb-0 text-slate-700">
+          <strong className="text-teal-800">{route.leg === 'TO_PATIENT' ? 'To patient' : 'To hospital'}:</strong>{' '}
+          {route.routeAvailable ? `about ${route.estimatedDurationMins?.toFixed(1)} min` : route.operatorAlert ?? 'Waiting for location'}
+          {route.simulated && route.routeAvailable && <span className="ml-1 text-amber-700">· simulated</span>}
+        </p>)}
+        <p className="mt-1 border-t border-slate-100 pt-1 text-[10px] text-slate-500">Route estimates refresh with ambulance location updates.</p>
+      </div>}
       <div className="absolute bottom-4 left-4 z-[200] glass-panel px-3 py-2 rounded-xl border border-slate-700/60 flex items-center gap-4 text-xs font-mono">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
@@ -252,7 +285,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-          <span className="text-slate-300">Roadblock Hazard</span>
+          <span className="text-slate-300">Road closure</span>
         </div>
       </div>
     </div>

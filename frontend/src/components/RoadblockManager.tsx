@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertOctagon, Plus, MapPin, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { AlertOctagon, AlertCircle, Plus, CheckCircle2 } from 'lucide-react';
 import { Roadblock } from '../types';
 
 interface RoadblockManagerProps {
@@ -8,15 +8,15 @@ interface RoadblockManagerProps {
 }
 
 export const RoadblockManager: React.FC<RoadblockManagerProps> = ({ roadblocks, onCreateRoadblock }) => {
-  const [source, setSource] = useState('Metro Construction Edge Block');
-  const [latitude, setLatitude] = useState(12.9750);
-  const [longitude, setLongitude] = useState(77.5980);
+  const [source, setSource] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   const [radiusMeters, setRadiusMeters] = useState(150);
   const [scope, setScope] = useState('FULL_BLOCK');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onCreateRoadblock({ source, latitude, longitude, radiusMeters, scope });
+    onCreateRoadblock({ source, latitude: Number(latitude), longitude: Number(longitude), radiusMeters, scope });
   };
 
   return (
@@ -24,10 +24,10 @@ export const RoadblockManager: React.FC<RoadblockManagerProps> = ({ roadblocks, 
       <div className="flex items-center justify-between pb-2 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <AlertOctagon className="w-5 h-5 text-amber-400" />
-          <h3 className="font-extrabold text-sm text-white">ACTIVE ROADBLOCK HAZARDS & ROUTE RESTRICTIONS</h3>
+          <h3 className="font-extrabold text-sm text-white">Reported road closures</h3>
         </div>
         <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/30">
-          {roadblocks.length} Active Hazards
+          {roadblocks.length} active
         </span>
       </div>
 
@@ -38,16 +38,17 @@ export const RoadblockManager: React.FC<RoadblockManagerProps> = ({ roadblocks, 
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-xs text-amber-300">{rb.source}</span>
-                <span className="bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded">
-                  {rb.scope}
+                <span className="bg-amber-50 text-amber-800 text-[10px] font-medium px-1.5 py-0.5 rounded">
+                  {rb.scope === 'FULL_BLOCK' ? 'Road closed' : 'Lane restricted'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                Coords: {rb.latitude.toFixed(4)}, {rb.longitude.toFixed(4)} (Radius: {rb.radiusMeters}m)
+                Map location: {rb.latitude.toFixed(4)}, {rb.longitude.toFixed(4)} · {rb.radiusMeters} m around this point
               </p>
             </div>
-            <span className="text-[10px] text-emerald-400 font-mono font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/30">
-              <CheckCircle2 className="w-3 h-3" /> Verified Restriction
+            <span className={`text-[10px] font-medium flex items-center gap-1 px-2 py-1 rounded ${rb.verified ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
+              {rb.verified ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+              {rb.verified ? 'Confirmed' : 'Needs confirmation'}
             </span>
           </div>
         ))}
@@ -56,12 +57,12 @@ export const RoadblockManager: React.FC<RoadblockManagerProps> = ({ roadblocks, 
       {/* Register New Roadblock Form */}
       <form onSubmit={handleSubmit} className="p-3 bg-navy-950 rounded-xl border border-slate-800 space-y-3 text-xs">
         <h4 className="font-bold text-xs text-slate-200 flex items-center gap-1.5">
-          <Plus className="w-3.5 h-3.5 text-teal-400" /> Register Verified Road Hazard
+          <Plus className="w-3.5 h-3.5 text-teal-400" /> Report a road closure
         </h4>
         <div className="grid grid-cols-2 gap-2">
           <input
             type="text"
-            placeholder="Hazard Source"
+            placeholder="What is blocking the road?"
             value={source}
             onChange={(e) => setSource(e.target.value)}
             className="bg-navy-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
@@ -72,15 +73,22 @@ export const RoadblockManager: React.FC<RoadblockManagerProps> = ({ roadblocks, 
             onChange={(e) => setScope(e.target.value)}
             className="bg-navy-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
           >
-            <option value="FULL_BLOCK">Full Road Blockade</option>
-            <option value="LANE_RESTRICTION">Single Lane Restriction</option>
+            <option value="FULL_BLOCK">Road closed</option>
+            <option value="LANE_RESTRICTION">One lane closed</option>
           </select>
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input type="number" step="any" min="-90" max="90" placeholder="Latitude" value={latitude} onChange={event => setLatitude(event.target.value)} className="bg-navy-900 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900" required />
+          <input type="number" step="any" min="-180" max="180" placeholder="Longitude" value={longitude} onChange={event => setLongitude(event.target.value)} className="bg-navy-900 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900" required />
+        </div>
+        <label className="block text-slate-600">Area around the reported point (metres)
+          <input type="number" min="10" max="5000" value={radiusMeters} onChange={event => setRadiusMeters(Number(event.target.value))} className="mt-1 w-full bg-navy-900 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900" required />
+        </label>
         <button
           type="submit"
           className="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5"
         >
-          <ShieldAlert className="w-3.5 h-3.5" /> Inject Roadblock & Force Reroute
+          <Plus className="w-3.5 h-3.5" /> Add road closure
         </button>
       </form>
     </div>

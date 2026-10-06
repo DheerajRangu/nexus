@@ -2,10 +2,15 @@ package com.aegis.controlroom.controller;
 
 import com.aegis.controlroom.model.User;
 import com.aegis.controlroom.repository.UserRepository;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import com.aegis.controlroom.security.JwtService;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -13,34 +18,30 @@ import java.util.Map;
 public class AuthController {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthController(UserRepository userRepository) {
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> credentials) {
+    public Map<String, Object> login(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
-        User user = userRepository.findByUsername(username).orElse(null);
-
-        if (user == null) {
-            // Default demo fallback user if username unknown
-            User demoUser = new User();
-            demoUser.setUserId("usr-demo");
-            demoUser.setUsername(username != null ? username : "supervisor1");
-            demoUser.setFullName("Demo Operations Lead");
-            demoUser.setRole(com.aegis.controlroom.model.Role.ROLE_SUPERVISOR);
-            user = demoUser;
+        String password = credentials.get("password");
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        if (password == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
-
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("token", "aegis_jwt_demo_token_" + user.getUserId());
-        resp.put("userId", user.getUserId());
-        resp.put("username", user.getUsername());
-        resp.put("fullName", user.getFullName());
-        resp.put("role", user.getRole().name());
-        resp.put("entityScopeId", user.getEntityScopeId());
-
-        return ResponseEntity.ok(resp);
+        String token = jwtService.issue(user.getUserId(), user.getRole().name(), user.getEntityScopeId());
+        return Map.of(
+                "token", token,
+                "userId", user.getUserId(),
+                "username", user.getUsername(),
+                "role", user.getRole().name()
+        );
     }
 }

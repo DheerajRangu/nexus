@@ -22,6 +22,9 @@ public class TrackingSession {
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
+    @Transient
+    private String presentedToken;
+
     public TrackingSession() {}
 
     public String getSessionId() { return sessionId; }
@@ -34,4 +37,6 @@ public class TrackingSession {
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getPresentedToken() { return presentedToken; }
+    public void setPresentedToken(String presentedToken) { this.presentedToken = presentedToken; }
 }

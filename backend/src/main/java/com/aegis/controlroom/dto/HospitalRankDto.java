@@ -14,6 +14,8 @@ public class HospitalRankDto {
     private Boolean specialistReady;
     private Double score;
     private List<String> reasons;
+    private List<String> assumptions;
+    private String availabilityStatus; // AVAILABLE or UNKNOWN
 
     public HospitalRankDto() {}
 
@@ -39,4 +41,8 @@ public class HospitalRankDto {
     public void setScore(Double score) { this.score = score; }
     public List<String> getReasons() { return reasons; }
     public void setReasons(List<String> reasons) { this.reasons = reasons; }
+    public List<String> getAssumptions() { return assumptions; }
+    public void setAssumptions(List<String> assumptions) { this.assumptions = assumptions; }
+    public String getAvailabilityStatus() { return availabilityStatus; }
+    public void setAvailabilityStatus(String availabilityStatus) { this.availabilityStatus = availabilityStatus; }
 }

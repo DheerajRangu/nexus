@@ -38,7 +38,7 @@ export const WebhookSimulatorModal: React.FC<WebhookSimulatorModalProps> = ({ is
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <h3 className="font-extrabold text-base text-white flex items-center gap-2">
             <Zap className="w-5 h-5 text-amber-400" />
-            108 Inbound Call Webhook Event Simulator
+            Simulated 108 Incoming Call
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
             <X className="w-5 h-5" />
@@ -49,15 +49,15 @@ export const WebhookSimulatorModal: React.FC<WebhookSimulatorModalProps> = ({ is
           <div className="p-3 bg-navy-950 rounded-xl border border-slate-800 space-y-2 font-mono">
             <div className="flex items-center justify-between text-[11px] text-teal-400 font-bold">
               <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> Signature Header:
+                <ShieldCheck className="w-3.5 h-3.5" /> Demo adapter:
               </span>
-              <span className="text-slate-400">X-Aegis-Signature: sha256=...</span>
+              <span className="text-slate-400">Server-side demo intake</span>
             </div>
             <div className="flex items-center justify-between text-[11px] text-teal-400 font-bold">
               <span className="flex items-center gap-1">
-                <Key className="w-3.5 h-3.5" /> Idempotency Header:
+                <Key className="w-3.5 h-3.5" /> Deduplication:
               </span>
-              <span className="text-slate-400">X-Idempotency-Key: idemp-88219</span>
+              <span className="text-slate-400">Uses call reference</span>
             </div>
           </div>
 
@@ -106,7 +106,7 @@ export const WebhookSimulatorModal: React.FC<WebhookSimulatorModalProps> = ({ is
               type="submit"
               className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-amber-500/20"
             >
-              Emit Webhook Event
+              Simulate Incoming Call
             </button>
           </div>
         </form>

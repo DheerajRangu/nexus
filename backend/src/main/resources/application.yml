@@ -22,9 +22,36 @@ aegis:
   redis:
     enabled: ${AEGIS_REDIS_ENABLED:false}
   jwt:
-    secret: ${JWT_SECRET:}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    secret: ${JWT_SECRET:aegis-super-secret-controlroom-token-key-32-bytes-min}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # JWT lifetime
   webhook:
-    secret: ${WEBHOOK_HMAC_SECRET:}
+    secret: ${WEBHOOK_HMAC_SECRET:aegis-super-secret-webhook-hmac-key-32-bytes}
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000/api/v1}
+    connect-timeout-ms: 800 # Spring -> FastAPI connect timeout
+    read-timeout-ms: 1500 # Spring -> FastAPI read timeout
+    max-retries: 1 # bounded retries after the first attempt
+  dispatch:
+    offer-ttl-seconds: 30 # offer expiry window
+    ping-freshness-seconds: 120 # drop ambulances with older telemetry
+    shortlist-size: 5 # max ranked candidates returned
+    auto-enabled: true # auto-offer top ranked unit after shortlist
+    expiry-job-ms: 5000 # scheduled expiry poll interval
+  location:
+    uncertainty-radius-meters: 100 # flag uncertain caller locations
+  hospital:
+    snapshot-freshness-seconds: 300 # older resource snapshots are UNKNOWN
+  routing:
+    provider: ${AEGIS_ROUTING_PROVIDER:demo} # use google after configuring GOOGLE_MAPS_API_KEY
+    recalc-eta-delta-mins: 2.0 # recalculate only when ETA delta exceeds this
+    cache-ttl-seconds: 15 # coalesce repeated live routing requests and control API usage
+    connect-timeout-ms: 1000
+    read-timeout-ms: 3000
+  google-maps:
+    routes-api-key: ${GOOGLE_MAPS_API_KEY:}
+  outbox:
+    publish-delay-ms: 2000 # outbox publisher poll interval
+  demo:
+    enabled: false
+    step-delay-ms: 1500
+    rng-seed: 42

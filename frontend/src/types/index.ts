@@ -65,6 +65,8 @@ export interface AmbulanceRank {
   score: number;
   reasons: string[];
   driverId: string;
+  routingProvider?: string;
+  simulated?: boolean;
 }
 
 export interface HospitalRank {
@@ -103,6 +105,27 @@ export interface Mission {
   hospitalEtaMins?: number;
   startedAt: string;
   completedAt?: string;
+}
+
+export interface MissionRoute {
+  missionId: string;
+  emergencyId: string;
+  leg: 'TO_PATIENT' | 'TO_HOSPITAL';
+  missionState: string;
+  routeAvailable: boolean;
+  status?: string;
+  estimatedDurationMins?: number;
+  distanceKm?: number;
+  simulated?: boolean;
+  provider?: string;
+  routeVersion?: number;
+  locationUpdatedAt?: string;
+  recalculatedAt?: string;
+  destinationLabel?: string;
+  locationConfirmed?: boolean;
+  locationAccuracyMeters?: number;
+  operatorAlert?: string;
+  points?: { latitude: number; longitude: number }[];
 }
 
 export interface Roadblock {

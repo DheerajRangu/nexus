@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface AuditEventRepository extends JpaRepository<AuditEvent, String> {
     List<AuditEvent> findByAggregateId(String aggregateId);
+    List<AuditEvent> findByAggregateIdAndEventType(String aggregateId, String eventType);
 }

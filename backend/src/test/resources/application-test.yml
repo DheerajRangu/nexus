@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aegis_test
+    username: ${DB_USER:aegis_app}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+aegis:
+  jwt:
+    secret: test-jwt-secret-not-for-production-use-32b
+  webhook:
+    secret: test-webhook-secret
+  ai-service:
+    url: http://127.0.0.1:1/api/v1
+    connect-timeout-ms: 200
+    read-timeout-ms: 200
+    max-retries: 0
+  dispatch:
+    offer-ttl-seconds: 30
+    ping-freshness-seconds: 120
+    shortlist-size: 5
+    auto-enabled: false
+    expiry-job-ms: 60000
+  hospital:
+    snapshot-freshness-seconds: 300
+  routing:
+    recalc-eta-delta-mins: 2.0
+  outbox:
+    publish-delay-ms: 60000
+  demo:
+    step-delay-ms: 0
+    rng-seed: 42
+

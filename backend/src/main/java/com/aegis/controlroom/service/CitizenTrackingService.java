@@ -2,8 +2,13 @@ package com.aegis.controlroom.service;
 
 import com.aegis.controlroom.model.*;
 import com.aegis.controlroom.repository.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -32,26 +37,41 @@ public class CitizenTrackingService {
     }
 
     public TrackingSession createSession(String emergencyId) {
-        String token = "tk_" + UUID.randomUUID().toString().replace("-", "");
+        byte[] raw = new byte[32];
+        new SecureRandom().nextBytes(raw);
+        String token = "tk_" + HexFormat.of().formatHex(raw);
         TrackingSession session = new TrackingSession();
         session.setSessionId("sess-" + UUID.randomUUID().toString().substring(0, 8));
         session.setEmergencyId(emergencyId);
-        session.setTrackingToken(token);
+        session.setTrackingToken(sha256(token));
+        session.setPresentedToken(token);
         session.setExpiresAt(Instant.now().plus(4, ChronoUnit.HOURS));
-        return trackingSessionRepository.save(session);
+        trackingSessionRepository.save(session);
+        return session;
     }
 
     public Map<String, Object> getTrackingSnapshot(String token) {
-        TrackingSession session = trackingSessionRepository.findByTrackingToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired tracking token"));
+        TrackingSession session = trackingSessionRepository.findByTrackingToken(sha256(token))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (session.getExpiresAt().isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE);
+        }
+        return buildSnapshot(session.getEmergencyId());
+    }
 
-        EmergencyCase eCase = emergencyCaseRepository.findById(session.getEmergencyId()).orElse(null);
-        IncidentLocation loc = incidentLocationRepository.findByEmergencyId(session.getEmergencyId()).orElse(null);
-        Mission mission = missionRepository.findByEmergencyId(session.getEmergencyId()).orElse(null);
+    /** Operator/demo reconnect helper — same payload shape without presenting the raw token. */
+    public Map<String, Object> snapshotForEmergency(String emergencyId) {
+        return buildSnapshot(emergencyId);
+    }
+
+    private Map<String, Object> buildSnapshot(String emergencyId) {
+        EmergencyCase eCase = emergencyCaseRepository.findById(emergencyId).orElse(null);
+        IncidentLocation loc = incidentLocationRepository.findByEmergencyId(emergencyId).orElse(null);
+        Mission mission = missionRepository.findByEmergencyId(emergencyId).orElse(null);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("emergencyId", session.getEmergencyId());
-        result.put("token", token);
+        result.put("emergencyId", emergencyId);
+        result.put("token", "********");
         result.put("caseState", eCase != null ? eCase.getCurrentState() : "UNKNOWN");
         result.put("triagePriority", eCase != null ? eCase.getTriagePriority() : "P3_STANDARD");
         result.put("incidentLocation", loc);
@@ -86,5 +106,14 @@ public class CitizenTrackingService {
             }
         }
         return result;
+    }
+
+    public static String sha256(String token) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 }

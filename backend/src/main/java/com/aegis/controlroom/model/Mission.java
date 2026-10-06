@@ -23,7 +23,7 @@ public class Mission {
     private String assignedHospitalId;
 
     @Column(name = "current_state", nullable = false, length = 50)
-    private String currentState = "DISPATCHED";
+    private String currentState = "ASSIGNED";
 
     @Column(name = "pickup_eta_mins")
     private Double pickupEtaMins;

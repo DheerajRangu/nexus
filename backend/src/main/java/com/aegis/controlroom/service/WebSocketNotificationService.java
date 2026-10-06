@@ -18,11 +18,18 @@ public class WebSocketNotificationService {
     public void broadcastEvent(String topic, String eventType, String aggregateId, Object payload) {
         Map<String, Object> event = new HashMap<>();
         event.put("eventId", "evt-" + UUID.randomUUID().toString().substring(0, 8));
+        event.put("type", eventType);
         event.put("eventType", eventType);
         event.put("aggregateId", aggregateId);
+        event.put("entityVersion", 0);
+        event.put("occurredAt", java.time.Instant.now().toString());
         event.put("timestamp", System.currentTimeMillis());
         event.put("payload", payload);
 
         messagingTemplate.convertAndSend(topic, event);
+    }
+
+    public void broadcastEnvelope(String topic, Map<String, Object> envelope) {
+        messagingTemplate.convertAndSend(topic, envelope);
     }
 }
