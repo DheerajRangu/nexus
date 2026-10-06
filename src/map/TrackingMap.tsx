@@ -62,6 +62,7 @@ export function loadGoogle(apiKey: string): Promise<GoogleNamespace> {
 }
 
 export function TrackingMap(props: {
+  showProviderHint?: boolean;
   lang: Lang;
   pickup: MapPoint | null;
   device: GeoPoint | null;
@@ -94,7 +95,7 @@ export function TrackingMap(props: {
   if (apiKey && googleReady && !googleFailed) {
     return <GoogleTrackingMap {...props} />;
   }
-  return <FallbackMap {...props} showKeyHint={!apiKey || googleFailed} />;
+  return <FallbackMap {...props} showKeyHint={props.showProviderHint !== false && (!apiKey || googleFailed)} />;
 }
 
 function useAmbulanceMarker(telemetry: Telemetry | null): DisplayPosition | null {
@@ -315,7 +316,7 @@ function FallbackMap(props: {
   const hospital = props.hospital ? project(props.hospital, bounds, width, height) : null;
 
   function movePin(event: PointerEvent<SVGSVGElement>) {
-    if (!props.onPickupChange || !props.pickup) return;
+    if (!props.onPickupChange) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * width;
     const y = ((event.clientY - rect.top) / rect.height) * height;

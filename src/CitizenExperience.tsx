@@ -169,6 +169,7 @@ function TrackingScreen(props: {
       ) : null}
       {!ended && !showForm ? (
         <TrackingMap
+          showProviderHint={false}
           lang={props.lang}
           pickup={snapshot.location.confirmedPickup}
           device={null}

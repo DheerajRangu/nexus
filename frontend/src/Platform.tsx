@@ -1,13 +1,11 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Activity,Ambulance as AmbulanceIcon,Camera as CameraIcon,Hospital as HospitalIcon,LayoutDashboard,Route as RouteIcon,Shield,Users,Radio,LogOut,MapPin} from 'lucide-react';
 import {Badge,Panel,time} from '../../src/components/primitives';
-import {LocationForm} from '../../src/LocationForm';
-import {App as CitizenTracking} from '../../src/App';
-import type {LocationConfirmationRequest} from '../../shared/contract';
 import {core,emptyCity,type City,type Incident,type Operator,type Hospital,type Point} from './services/ecosystem';
 import {OperationsMap} from './OperationsMap';
 import {RoadVision} from './RoadVision';
 import './platform.css';
+import {CitizenPortal} from './citizen/CitizenPortal';
 
 export function Platform(){
  const citizen=location.pathname.startsWith('/citizen')||location.pathname.startsWith('/emergency-track/');
@@ -59,11 +57,4 @@ function Capacity({hospital,editable,busy,onSave}:{hospital:Hospital;editable:bo
 function Assessment({incident,busy,onSave}:{incident:Incident;busy:boolean;onSave:(body:unknown)=>void}){
  const [severity,setSeverity]=useState(incident.severity),[hr,setHr]=useState(''),[spo2,setSpo2]=useState(''),[notes,setNotes]=useState('');
  return <details className="assessment-form"><summary>EMT patient assessment</summary><label>Clinician-confirmed severity<select value={severity} onChange={e=>setSeverity(e.target.value)}>{['LOW','MODERATE','HIGH','CRITICAL'].map(s=><option key={s}>{s}</option>)}</select></label><label>Heart rate<input type="number" value={hr} onChange={e=>setHr(e.target.value)}/></label><label>SpO₂<input type="number" min="0" max="100" value={spo2} onChange={e=>setSpo2(e.target.value)}/></label><label>Observations<textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label><small>Decision support. Emergency personnel confirm severity and care requirements.</small><button className="button" disabled={busy} onClick={()=>onSave({severity,vitals:{heartRate:hr,spo2,notes}})}>Save assessment</button></details>
-}
-function CitizenPortal(){
- const token=useRef(location.pathname.startsWith('/emergency-track/')?location.pathname.split('/').at(-1)||null:null);
- const [tracking,setTracking]=useState(Boolean(token.current)||location.pathname==='/citizen/tracking'),[name,setName]=useState(''),[category,setCategory]=useState('ROAD_ACCIDENT'),[error,setError]=useState(''),[link,setLink]=useState(''),[contacts,setContacts]=useState(()=>localStorage.getItem('aegis.trustedContacts')||'');
- useEffect(()=>{if(token.current)history.replaceState({},'','/citizen/tracking')},[]);
- async function submitLocation(body:LocationConfirmationRequest){setError('');try{const value=await core<{incidentId:string;trackingLink:string}>('/api/incidents',{submissionId:crypto.randomUUID(),patientName:name||'Emergency patient',location:{latitude:body.pickup.latitude,longitude:body.pickup.longitude},emergencyType:category,severity:'HIGH',description:body.notes.access||''});setLink(location.origin+value.trackingLink);setTracking(true);history.replaceState({},'','/citizen/tracking')}catch(e){setError((e as Error).message);throw e}}
- return <div className="ecosystem citizen-shell"><header className="topbar"><Shield size={25}/><strong>AEGIS · Citizen emergency support</strong><a href="/control-room">Command room</a></header><main className="citizen-surface"><h1>{tracking?'Your emergency journey':'SOS / 108 demonstration'}</h1><p>This demo does not call real emergency services. For urgent help, use your local emergency service.</p>{error&&<p role="alert">{error}</p>}{tracking?<CitizenTracking initialToken={token.current} startDemo={false}/>:<><label>Patient name<input aria-label="Patient name" value={name} onChange={e=>setName(e.target.value)}/></label><label>Emergency type<select value={category} onChange={e=>setCategory(e.target.value)}>{['ROAD_ACCIDENT','CARDIAC','STROKE','BREATHING','INJURY','OTHER'].map(t=><option key={t}>{t}</option>)}</select></label><LocationForm lang="en" mode="confirm" dispatchStarted={false} expectedLocationVersion={0} onSearch={async()=>({results:[],syntheticAddress:true})} onReverse={async point=>({result:{label:'Selected pickup point',...point},syntheticAddress:true})} onSubmit={submitLocation}/></>}{link&&<section className="card"><h3>Secure emergency tracking link</h3><input aria-label="Tracking link" readOnly value={link}/><button className="btn btn-primary" onClick={()=>navigator.clipboard.writeText(link)}>Copy tracking link</button></section>}<section className="card"><h3>Trusted contacts</h3><label>Contacts you want to share with<textarea aria-label="Trusted contacts" value={contacts} onChange={e=>{setContacts(e.target.value);localStorage.setItem('aegis.trustedContacts',e.target.value)}}/></label><small>Stored on this device. Share the restricted tracking link with selected contacts.</small>{link&&<button className="btn btn-secondary" onClick={()=>{if(navigator.share)void navigator.share({title:'AEGIS emergency tracking',url:link});else void navigator.clipboard.writeText(link)}}>Share tracking link</button>}</section></main></div>
 }
